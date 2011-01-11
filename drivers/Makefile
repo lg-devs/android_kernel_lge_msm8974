@@ -143,5 +143,8 @@ obj-$(CONFIG_MOBICORE_SUPPORT)  += gud/
 
 obj-$(CONFIG_CORESIGHT)		+= coresight/
 
+#FeliCa
+obj-$(CONFIG_LGE_FELICA) 	+= felica/
+
 obj-$(CONFIG_BIF)		+= bif/
 obj-$(CONFIG_SENSORS)		+= sensors/
