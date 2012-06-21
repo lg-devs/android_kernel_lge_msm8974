@@ -97,6 +97,11 @@ else
 
 $(KERNEL_CONFIG): $(KERNEL_OUT)
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) ARCH=arm CROSS_COMPILE=arm-eabi- $(KERNEL_DEFCONFIG)
+
+ifeq ($(TARGET_PRODUCT),b1_cmcc_cn)
+	echo "CONFIG_BRCM_WAPI=y" >> $(KERNEL_CONFIG)
+endif
+
 endif
 
 ifneq ($(TARGET_BUILD_VARIANT), user)
