@@ -3,6 +3,7 @@
 
 #include <linux/types.h>
 #include <linux/crypto.h>
+#include <crypto/cast_common.h>
 
 #define CAST5_BLOCK_SIZE 8
 #define CAST5_MIN_KEY_SIZE 5

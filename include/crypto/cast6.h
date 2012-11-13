@@ -3,6 +3,7 @@
 
 #include <linux/types.h>
 #include <linux/crypto.h>
+#include <crypto/cast_common.h>
 
 #define CAST6_BLOCK_SIZE 16
 #define CAST6_MIN_KEY_SIZE 16
