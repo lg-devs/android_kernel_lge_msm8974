@@ -2117,6 +2117,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 	}, {
 		.alg = "deflate",
 		.test = alg_test_comp,
+		.fips_allowed = 1,
 		.suite = {
 			.comp = {
 				.comp = {
@@ -2581,6 +2582,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 	}, {
 		.alg = "lzo",
 		.test = alg_test_comp,
+		.fips_allowed = 1,
 		.suite = {
 			.comp = {
 				.comp = {
@@ -2948,6 +2950,7 @@ static const struct alg_test_desc alg_test_descs[] = {
 	}, {
 		.alg = "zlib",
 		.test = alg_test_pcomp,
+		.fips_allowed = 1,
 		.suite = {
 			.pcomp = {
 				.comp = {
