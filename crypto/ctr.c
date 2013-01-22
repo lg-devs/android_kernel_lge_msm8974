@@ -351,9 +351,8 @@ static struct crypto_instance *crypto_rfc3686_alloc(struct rtattr **tb)
 		return ERR_PTR(-EINVAL);
 
 	cipher_name = crypto_attr_alg_name(tb[1]);
-	err = PTR_ERR(cipher_name);
 	if (IS_ERR(cipher_name))
-		return ERR_PTR(err);
+		return ERR_CAST(err);
 
 	inst = kzalloc(sizeof(*inst) + sizeof(*spawn), GFP_KERNEL);
 	if (!inst)
