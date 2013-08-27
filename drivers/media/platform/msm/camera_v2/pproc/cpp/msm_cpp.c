@@ -648,11 +648,6 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 		pr_err("%s: Bandwidth registration Failed!\n", __func__);
 		goto bus_scale_register_failed;
 	}
-/*                                                                                          */
-#if 0
-	msm_isp_update_bandwidth(ISP_CPP, 981345600, 1066680000);
-#endif
-/*                                                                                          */
 
 	if (cpp_dev->fs_cpp == NULL) {
 		cpp_dev->fs_cpp =
@@ -762,10 +757,8 @@ static int cpp_init_hardware(struct cpp_device *cpp_dev)
 	cpp_dev->taskletq_idx = 0;
 	atomic_set(&cpp_dev->irq_cnt, 0);
 	msm_cpp_create_buff_queue(cpp_dev, MSM_CPP_MAX_BUFF_QUEUE);
-/*                                                                                          */
-	pr_err("stream_cnt:%d\n", cpp_dev->stream_cnt);
+	pr_debug("stream_cnt:%d\n", cpp_dev->stream_cnt);
 	cpp_dev->stream_cnt = 0;
-/*                                                                                          */
 	if (cpp_dev->is_firmware_loaded == 1) {
 		disable_irq(cpp_dev->irq->start);
 		cpp_load_fw(cpp_dev, cpp_dev->fw_name_bin);
@@ -789,11 +782,6 @@ clk_failed:
 	regulator_disable(cpp_dev->fs_cpp);
 	regulator_put(cpp_dev->fs_cpp);
 fs_failed:
-/*                                                                                          */
-#if 0
-	msm_isp_update_bandwidth(ISP_CPP, 0, 0);
-#endif
-/*                                                                                          */
 	msm_isp_deinit_bandwidth_mgr(ISP_CPP);
 bus_scale_register_failed:
 	return rc;
@@ -820,14 +808,12 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 	regulator_disable(cpp_dev->fs_cpp);
 	regulator_put(cpp_dev->fs_cpp);
 	cpp_dev->fs_cpp = NULL;
-/*                                                                                          */
-#if 0
-	msm_isp_update_bandwidth(ISP_CPP, 0, 0);
-#endif
-	if (cpp_dev->stream_cnt > 0)
-	pr_err("error: stream count active\n");
+	if (cpp_dev->stream_cnt > 0) {
+		pr_debug("error: stream count active\n");
+        // LG disabled this. As for why? IDK
+		//msm_isp_update_bandwidth(ISP_CPP, 0, 0);
+	}
 	cpp_dev->stream_cnt = 0;
-/*                                                                                          */
 	msm_isp_deinit_bandwidth_mgr(ISP_CPP);
 }
 
@@ -1659,9 +1645,9 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 
 		kfree(k_stream_buff_info.buffer_info);
 		kfree(u_stream_buff_info);
-/*                                                                                          */
 		if (cpp_dev->stream_cnt == 0) {
-			rc = msm_isp_update_bandwidth(ISP_CPP, 981345600, 1066680000);
+			rc = msm_isp_update_bandwidth(ISP_CPP, 981345600,
+				1066680000);
 			if (rc < 0) {
 				pr_err("Bandwidth Set Failed!\n");
 				msm_isp_update_bandwidth(ISP_CPP, 0, 0);
@@ -1669,9 +1655,10 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				return -EINVAL;
 			}
 		}
-		cpp_dev->stream_cnt++;
-		pr_err("stream_cnt:%d\n", cpp_dev->stream_cnt);
-/*                                                                                          */
+		if (cmd != VIDIOC_MSM_CPP_APPEND_STREAM_BUFF_INFO) {
+			cpp_dev->stream_cnt++;
+			pr_debug("stream_cnt:%d\n", cpp_dev->stream_cnt);
+		}
 		break;
 	}
 	case VIDIOC_MSM_CPP_DEQUEUE_STREAM_BUFF_INFO: {
@@ -1704,19 +1691,18 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = msm_cpp_free_buff_queue_entry(cpp_dev,
 			buff_queue_info->session_id,
 			buff_queue_info->stream_id);
-/*                                                                                          */
 		if (cpp_dev->stream_cnt > 0) {
 			cpp_dev->stream_cnt--;
-			pr_err("stream_cnt:%d\n", cpp_dev->stream_cnt);
+			pr_debug("stream_cnt:%d\n", cpp_dev->stream_cnt);
 			if (cpp_dev->stream_cnt == 0) {
 				rc = msm_isp_update_bandwidth(ISP_CPP, 0, 0);
 				if (rc < 0)
 					pr_err("Bandwidth Reset Failed!\n");
 			}
 		} else {
-			pr_err("error: stream count underflow %d\n", cpp_dev->stream_cnt);
+			pr_err("error: stream count underflow %d\n",
+				cpp_dev->stream_cnt);
 		}
-/*                                                                                          */
 		break;
 	}
 	case VIDIOC_MSM_CPP_GET_EVENTPAYLOAD: {
