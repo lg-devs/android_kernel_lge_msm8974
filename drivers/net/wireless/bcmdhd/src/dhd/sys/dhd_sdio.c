@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 /*
  * DHD Bus Module for SDIO
  *
@@ -838,7 +839,7 @@ dhdsdio_sr_init(dhd_bus_t *bus)
 	uint8 val;
 	int err = 0;
 
-	if ((bus->sih->chip == BCM4334_CHIP_ID) && (bus->sih->chiprev == 2))
+	if (bus && bus->sih && (bus->sih->chip == BCM4334_CHIP_ID) && (bus->sih->chiprev == 2))
 		dhdsdio_srwar_init(bus);
 
 	val = bcmsdh_cfg_read(bus->sdh, SDIO_FUNC_1, SBSDIO_FUNC1_WAKEUPCTRL, NULL);
@@ -1065,7 +1066,7 @@ dhdsdio_clk_devsleep_iovar(dhd_bus_t *bus, bool on)
 			dhdsdio_clkctl(bus, CLK_SDONLY, FALSE);
 		}
 
-		if ((bus->sih->chip == BCM4334_CHIP_ID) && (bus->sih->chiprev == 2)) {
+		if (bus && bus->sih && (bus->sih->chip == BCM4334_CHIP_ID) && (bus->sih->chiprev == 2)) {
 			SPINWAIT_SLEEP(sdioh_spinwait_sleep,
 				(bcmsdh_gpioin(bus->sdh, GPIO_DEV_SRSTATE) != TRUE),
 				GPIO_DEV_SRSTATE_TIMEOUT);
