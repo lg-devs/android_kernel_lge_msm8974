@@ -2036,11 +2036,13 @@ int mdss_mdp_pp_init(struct device *dev)
 			mutex_unlock(&mdss_pp_mutex);
 			return ret;
 		#endif
-		}
-
-		for (i = 0; i < MDSS_MDP_MAX_DSPP; i++) {
-			mutex_init(&mdss_pp_res->dspp_hist[i].hist_mutex);
-			spin_lock_init(&mdss_pp_res->dspp_hist[i].hist_lock);
+		} else {
+			for (i = 0; i < MDSS_MDP_MAX_DSPP; i++) {
+				mutex_init(
+					&mdss_pp_res->dspp_hist[i].hist_mutex);
+				spin_lock_init(
+					&mdss_pp_res->dspp_hist[i].hist_lock);
+			}
 		}
 	}
 	if (mdata) {
