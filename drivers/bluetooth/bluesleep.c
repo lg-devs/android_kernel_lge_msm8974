@@ -70,7 +70,6 @@
 #define BT_DBG(fmt, arg...) pr_err("bluesleep: "fmt"\n", ##arg)
 #define BT_ERR(fmt, arg...) pr_err("bluesleep: "fmt"\n", ##arg)
 #endif
-#endif
 
 /* BT DMA Request / For UART */
 #ifndef BT_DMA_QOS_REQUEST
@@ -136,7 +135,7 @@ DECLARE_DELAYED_WORK(bluesleep_stop_workqueue, bluesleep_stop_wq);
 
 
 /* 10 second timeout */
-#define TX_TIMER_INTERVAL  3
+#define TX_TIMER_INTERVAL  10
 
 /* state variable names and bit positions */
 #define BT_PROTO	 0x01
@@ -285,7 +284,7 @@ static void bluesleep_sleep_work(struct work_struct *work)
 			return;
 		}
 
-		if (msm_hs_tx_empty(bsi->uport)) {
+		if (1==1 /*msm_hs_tx_empty(bsi->uport)*/) {
 			BT_DBG("going to sleep...");
 			set_bit(BT_ASLEEP, &flags);
 			/*Deactivating UART */
@@ -311,11 +310,6 @@ static void bluesleep_sleep_work(struct work_struct *work)
 		gpio_set_value(bsi->ext_wake, 1);
 		set_bit(BT_EXT_WAKE, &flags);
 	} else {
-//BT_S : [CONBT-952] Remove duplicate bluesleep log
-#ifdef REMOVE_DUPLICATE_BT_LOG
-		BT_DBG("bluesleep_sleep_wakeup() called...");
-#endif
-//BT_E : [CONBT-952] Remove duplicate bluesleep log
 		bluesleep_sleep_wakeup();
 	}
 }
@@ -492,8 +486,6 @@ static void bluesleep_tx_timer_expire(unsigned long data)
 
 	/* clear the incoming data flag */
 	clear_bit(BT_TXDATA, &flags);
-
-	spin_unlock_irqrestore(&rw_lock, irq_flags);
 }
 
 /**
