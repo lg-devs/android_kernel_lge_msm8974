@@ -927,6 +927,12 @@
 			< 7102 /* 931 MHz */ >;
 	};
 
+	qcom,kraitbw-l2pm {
+		compatible = "qcom,kraitbw-l2pm";
+		interrupts = <0 1 1>;
+		qcom,bytes-per-beat = <8>;
+	};
+
 	usb3: qcom,ssusb@f9200000 {
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0xf9200000 0xfc000>,
