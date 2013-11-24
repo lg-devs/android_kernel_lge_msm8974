@@ -51,6 +51,7 @@
 			    "lpaif_quat_mode_muxsel";
 	};
 
+
 	i2c@f9928000 { /* BLSP-1 QUP-6 */
 		cell-index = <3>;
 		compatible = "qcom,i2c-qup";
