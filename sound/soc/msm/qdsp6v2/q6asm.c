@@ -1739,7 +1739,7 @@ static int __q6asm_open_write(struct audio_client *ac, uint32_t format,
 	open.hdr.opcode = ASM_STREAM_CMD_OPEN_WRITE_V3;
 	open.mode_flags = 0x00;
 	if (ac->perf_mode == ULTRA_LOW_LATENCY_PCM_MODE)
- 		open.mode_flags |= ASM_ULTRA_LOW_LATENCY_STREAM_SESSION;
+		open.mode_flags |= ASM_ULTRA_LOW_LATENCY_STREAM_SESSION;
 	else if (ac->perf_mode == LOW_LATENCY_PCM_MODE)
 		open.mode_flags |= ASM_LOW_LATENCY_STREAM_SESSION;
 	else
