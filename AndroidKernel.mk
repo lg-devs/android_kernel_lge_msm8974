@@ -62,11 +62,26 @@ mpath=`dirname $$mdpath`; rm -rf $$mpath;\
 fi
 endef
 
+MVPD_MODULES := mvpkm.ko commkm.ko pvtcpkm.ko
+define rm-mvp-modules
+if [ "$(strip $(USES_VMWARE_VIRTUALIZATION))" = "true" ];then\
+rm -f $(addprefix $(KERNEL_MODULES_OUT)/,$(MVPD_MODULES));\
+fi
+endef
+
 $(KERNEL_OUT):
 	mkdir -p $(KERNEL_OUT)
 
 $(KERNEL_CONFIG): $(KERNEL_OUT)
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) ARCH=arm CROSS_COMPILE=arm-eabi- $(KERNEL_DEFCONFIG)
+
+ifneq ($(TARGET_BUILD_VARIANT), user)
+	echo "CONFIG_MMC_MSM_DEBUGFS=y" >> $(KERNEL_CONFIG)
+ifeq ($(strip $(USES_VMWARE_VIRTUALIZATION)), true)
+	echo "CONFIG_VMWARE_MVP_DEBUG=y" >> $(KERNEL_CONFIG)
+	echo "CONFIG_VMWARE_PVTCP_DEBUG=y" >> $(KERNEL_CONFIG)
+endif
+endif
 
 $(KERNEL_OUT)/piggy : $(TARGET_PREBUILT_INT_KERNEL)
 	$(hide) gunzip -c $(KERNEL_OUT)/arch/arm/boot/compressed/piggy.gzip > $(KERNEL_OUT)/piggy
@@ -77,6 +92,7 @@ $(TARGET_PREBUILT_INT_KERNEL): $(KERNEL_OUT) $(KERNEL_CONFIG) $(KERNEL_HEADERS_I
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) INSTALL_MOD_PATH=../../$(KERNEL_MODULES_INSTALL) INSTALL_MOD_STRIP=1 ARCH=arm CROSS_COMPILE=arm-eabi- modules_install
 	$(mv-modules)
 	$(clean-module-folder)
+	$(rm-mvp-modules)
 	$(append-dtb)
 
 $(KERNEL_HEADERS_INSTALL): $(KERNEL_OUT) $(KERNEL_CONFIG)
