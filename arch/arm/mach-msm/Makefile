@@ -434,4 +434,3 @@ obj-$(CONFIG_LGE_SMD_TEST) += smd_lge_loopback.o
 obj-y += lge_moca_drv.o
 obj-$(CONFIG_ARCH_MSM8974) += moca_kernel_probe.o
 obj-$(CONFIG_PERFMAP) += perfmap.o
-obj-$(CONFIG_ARCH_MSM8974) += cpubw-krait.o
