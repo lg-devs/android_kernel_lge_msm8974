@@ -3633,8 +3633,8 @@ static int venus_hfi_load_fw(void *dev)
 
 fail_protect_mem:
 	subsystem_put(device->resources.fw.cookie);
-	device->resources.fw.cookie = NULL;
 fail_load_fw:
+	device->resources.fw.cookie = NULL;
 	venus_hfi_iommu_detach(device);
 fail_iommu_attach:
 	venus_hfi_disable_unprepare_clks(device);
