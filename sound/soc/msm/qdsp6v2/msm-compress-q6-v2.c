@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -771,9 +771,9 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 				__func__, rc);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
-		pr_debug("%s: SNDRV_PCM_TRIGGER_STOP\n", __func__);
 		spin_lock_irqsave(&prtd->lock, flags);
-
+		pr_debug("%s: SNDRV_PCM_TRIGGER_STOP transition %d\n", __func__,
+					prtd->gapless_state.gapless_transition);
 		atomic_set(&prtd->start, 0);
 		if (atomic_read(&prtd->eos)) {
 			pr_debug("%s: interrupt drain and eos wait queues", __func__);
@@ -795,13 +795,16 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		}
 		rc = wait_event_timeout(prtd->flush_wait,
 					prtd->cmd_ack, 1 * HZ);
-		if (!rc) {
-			rc = -ETIMEDOUT;
-			pr_err("Flush cmd timeout\n");
-		} else
-			rc = 0; /* prtd->cmd_status == OK? 0 : -EPERM */
-
-		spin_lock_irqsave(&prtd->lock, flags);
+			if (!rc) {
+				rc = -ETIMEDOUT;
+				pr_err("Flush cmd timeout\n");
+			} else {
+				rc = 0; /* prtd->cmd_status == OK? 0 : -EPERM*/
+			}
+			spin_lock_irqsave(&prtd->lock, flags);
+		} else {
+			prtd->first_buffer = 0;
+		}
 		/* FIXME. only reset if flush was successful */
 		prtd->byte_offset  = 0;
 		prtd->copied_total = 0;
@@ -811,14 +814,20 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
 		spin_unlock_irqrestore(&prtd->lock, flags);
 		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		pr_debug("SNDRV_PCM_TRIGGER_PAUSE_PUSH\n");
-		q6asm_cmd_nowait(prtd->audio_client, CMD_PAUSE);
-		atomic_set(&prtd->start, 0);
+		pr_debug("SNDRV_PCM_TRIGGER_PAUSE_PUSH transition %d\n",
+				prtd->gapless_state.gapless_transition);
+		if (!prtd->gapless_state.gapless_transition) {
+			q6asm_cmd_nowait(prtd->audio_client, CMD_PAUSE);
+			atomic_set(&prtd->start, 0);
+		}
 		break;
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		pr_debug("SNDRV_PCM_TRIGGER_PAUSE_RELEASE\n");
-		atomic_set(&prtd->start, 1);
-		q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
+		pr_debug("SNDRV_PCM_TRIGGER_PAUSE_RELEASE transition %d\n",
+				   prtd->gapless_state.gapless_transition);
+		if (!prtd->gapless_state.gapless_transition) {
+			atomic_set(&prtd->start, 1);
+			q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
+		}
 		break;
 	case SND_COMPR_TRIGGER_PARTIAL_DRAIN:
 		pr_debug("%s: SND_COMPR_TRIGGER_PARTIAL_DRAIN\n", __func__);
@@ -927,7 +936,6 @@ static int msm_compr_trigger(struct snd_compr_stream *cstream, int cmd)
                           prtd->bytes_received = 0;
                        */
 			atomic_set(&prtd->drain, 0);
-			atomic_set(&prtd->xrun, 1);
 			pr_debug("%s: issue CMD_RESUME", __func__);
 			q6asm_run_nowait(prtd->audio_client, 0, 0, 0);
 			spin_unlock_irqrestore(&prtd->lock, flags);
@@ -1084,7 +1092,8 @@ static int msm_compr_copy(struct snd_compr_stream *cstream,
 	 * since the available bytes fits fragment_size, copy the data right away
 	 */
 	spin_lock_irqsave(&prtd->lock, flags);
-
+	if (prtd->gapless_state.gapless_transition)
+		prtd->gapless_state.gapless_transition = 0;
 	prtd->bytes_received += count;
 	if (atomic_read(&prtd->start)) {
 		if (atomic_read(&prtd->xrun)) {
