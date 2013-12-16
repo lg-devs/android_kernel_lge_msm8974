@@ -18,6 +18,8 @@
 #include <media/v4l2-subdev.h>
 #include <media/msmb_camera.h>
 #include "msm_camera_i2c.h"
+#include "msm_camera_dt_util.h"
+#include "msm_camera_io_util.h"
 /*                                                                                                    */
 #include <linux/wakelock.h>
 /*                                                                                                    */
@@ -30,6 +32,8 @@
 #define CAMERA_ENTER_MOMENT_AFTER                2
 static int current_moment;
 /*                                                                                                     */
+#define	MSM_ACTUATOT_MAX_VREGS (10)
+
 struct msm_actuator_ctrl_t;
 
 struct msm_actuator_func_tbl {
@@ -58,6 +62,12 @@ struct msm_actuator_func_tbl {
 struct msm_actuator {
 	enum actuator_type act_type;
 	struct msm_actuator_func_tbl func_tbl;
+};
+
+struct msm_actuator_vreg {
+	struct camera_vreg_t *cam_vreg;
+	void *data[MSM_ACTUATOT_MAX_VREGS];
+	int num_vreg;
 };
 
 struct msm_actuator_ctrl_t {
@@ -94,6 +104,7 @@ struct msm_actuator_ctrl_t {
 /*                                                                                                    */
 	struct wake_lock        camera_wake_lock;
 /*                                                                                                    */
+	struct msm_actuator_vreg vreg_cfg;
 };
 
 #endif
