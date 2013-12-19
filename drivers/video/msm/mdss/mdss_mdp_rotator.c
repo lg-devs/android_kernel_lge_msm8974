@@ -106,7 +106,7 @@ static struct mdss_mdp_pipe *mdss_mdp_rotator_pipe_alloc(void)
 	if (!pipe) {
 		mdss_mdp_wb_mixer_destroy(mixer);
 		pr_debug("dma pipe allocation failed\n");
-		return pipe;
+		return NULL;
 	}
 
 	pipe->mixer_stage = MDSS_MDP_STAGE_UNUSED;
@@ -200,7 +200,15 @@ static int mdss_mdp_rotator_pipe_dequeue(struct mdss_mdp_rotator_session *rot)
 	return 0;
 }
 
-static int inline __rotator_to_pipe(struct mdss_mdp_rotator_session *rot,
+/**
+ * __mdss_mdp_rotator_to_pipe() - setup pipe according to rotator session params
+ * @rot:	Pointer to rotator session
+ * @pipe:	Pointer to pipe driving structure
+ *
+ * After calling this the pipe structure will contain all parameters required
+ * to use rotator pipe. Note that this function assumes rotator pipe is idle.
+ */
+static int __mdss_mdp_rotator_to_pipe(struct mdss_mdp_rotator_session *rot,
 		struct mdss_mdp_pipe *pipe)
 {
 	int ret;
@@ -217,8 +225,8 @@ static int inline __rotator_to_pipe(struct mdss_mdp_rotator_session *rot,
 	rot->params_changed = 0;
 
 	/*
-	 * Clear previous SMP reservations and reserve according to the
-	 * latest configuration
+	 * Clear previous SMP reservations and reserve according
+	 * to the latest configuration
 	 */
 	mdss_mdp_smp_unreserve(pipe);
 
@@ -266,7 +274,7 @@ static int mdss_mdp_rotator_queue_sub(struct mdss_mdp_rotator_session *rot,
 	}
 
 	if (rot->params_changed || rot_ctl->mdata->mixer_switched) {
-		ret = __rotator_to_pipe(rot, rot_pipe);
+		ret = __mdss_mdp_rotator_to_pipe(rot, rot_pipe);
 		if (ret) {
 			pr_err("rotator session=%x to pipe=%d failed %d\n",
 					rot->session_id, rot_pipe->num, ret);
@@ -400,7 +408,7 @@ static int mdss_mdp_rotator_queue(struct mdss_mdp_rotator_session *rot)
  * is not possible we may still have a chance to reuse existing pipes used by
  * other sessions at a later point.
  */
-static int __rotator_pipe_reserve(struct mdss_mdp_rotator_session *rot)
+static int __mdss_mdp_rotator_pipe_reserve(struct mdss_mdp_rotator_session *rot)
 {
 	int ret;
 
@@ -426,7 +434,7 @@ static int __rotator_pipe_reserve(struct mdss_mdp_rotator_session *rot)
 		}
 	}
 
-	ret = __rotator_to_pipe(rot, rot->pipe);
+	ret = __mdss_mdp_rotator_to_pipe(rot, rot->pipe);
 	if (ret)
 		pr_err("rotator session=%x to pipe=%d failed %d\n",
 				rot->session_id, rot->pipe->num, ret);
@@ -593,9 +601,9 @@ int mdss_mdp_rotator_setup(struct msm_fb_data_type *mfd,
 
 	rot->params_changed++;
 
-	ret = __rotator_pipe_reserve(rot);
+	ret = __mdss_mdp_rotator_pipe_reserve(rot);
 	if (!ret && rot->next)
-		ret = __rotator_pipe_reserve(rot->next);
+		ret = __mdss_mdp_rotator_pipe_reserve(rot->next);
 
 	if (ret)
 		goto rot_err;
