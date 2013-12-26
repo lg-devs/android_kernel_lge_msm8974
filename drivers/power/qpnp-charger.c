@@ -2501,6 +2501,25 @@ get_prop_charge_type(struct qpnp_chg_chip *chip)
 
 	return POWER_SUPPLY_CHARGE_TYPE_NONE;
 }
+
+#define DEFAULT_CAPACITY	50
+static int
+get_batt_capacity(struct qpnp_chg_chip *chip)
+{
+	union power_supply_propval ret = {0,};
+
+	if (chip->fake_battery_soc >= 0)
+		return chip->fake_battery_soc;
+	if (chip->use_default_batt_values || !get_prop_batt_present(chip))
+		return DEFAULT_CAPACITY;
+	if (chip->bms_psy) {
+		chip->bms_psy->get_property(chip->bms_psy,
+				POWER_SUPPLY_PROP_CAPACITY, &ret);
+		return ret.intval;
+	}
+	return DEFAULT_CAPACITY;
+}
+
 #ifndef LG_IBAT_CURRENT
 static int set_qpnp_iadc_channel(struct qpnp_chg_chip *chip)
 {
@@ -2509,7 +2528,7 @@ static int set_qpnp_iadc_channel(struct qpnp_chg_chip *chip)
     rc = qpnp_chg_masked_write(chip, IADC1_BMS_ADC_CH_SEL_CTL,
                         ADC_CH_SEL_MASK, INTERNAL_RSENSE, 1);
 
-	 if (rc) {
+ if (rc) {
         pr_err("Unable to set IADC1_BMS channel %x to %x: %d\n",
                  IADC1_BMS_ADC_CH_SEL_CTL,
                  INTERNAL_RSENSE, rc);
@@ -2627,6 +2646,15 @@ static int get_battery_current(struct qpnp_chg_chip *chip, int *result_ua)
 	*result_ua = temp_current;
 	pr_debug("err compensated ibat=%duA\n", *result_ua);
 	return 0;
+
+	/* report full if state of charge is 100 and a charger is connected */
+	if ((qpnp_chg_is_usb_chg_plugged_in(chip) ||
+		qpnp_chg_is_dc_chg_plugged_in(chip))
+			&& get_batt_capacity(chip) == 100) {
+		return POWER_SUPPLY_STATUS_FULL;
+	}
+
+	return POWER_SUPPLY_STATUS_DISCHARGING;
 }
 static int
 get_prop_current_now(struct qpnp_chg_chip *chip)
@@ -2692,7 +2720,6 @@ get_prop_full_design(struct qpnp_chg_chip *chip)
 #endif
 }
 
-#define DEFAULT_CAPACITY	50
 static int
 get_prop_capacity(struct qpnp_chg_chip *chip)
 {
