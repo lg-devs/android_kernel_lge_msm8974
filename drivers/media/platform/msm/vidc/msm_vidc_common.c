@@ -390,7 +390,9 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 		&inst->completions[SESSION_MSG_INDEX(cmd)],
 		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
-		dprintk(VIDC_ERR, "Wait interrupted or timeout: %d\n", rc);
+		dprintk(VIDC_ERR,
+			"%s: Wait interrupted or timeout[%u]: %d\n",
+			__func__, (u32)inst->session, SESSION_MSG_INDEX(cmd));
 		msm_comm_recover_from_session_error(inst);
 		rc = -EIO;
 	} else {
@@ -438,6 +440,21 @@ static void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
 	mutex_unlock(&inst->lock);
 }
 
+static void msm_comm_generate_max_clients_error(struct msm_vidc_inst *inst)
+{
+	if (!inst) {
+		dprintk(VIDC_ERR, "%s: invalid input parameters\n", __func__);
+		return;
+	}
+	mutex_lock(&inst->sync_lock);
+	inst->session = NULL;
+	inst->state = MSM_VIDC_CORE_INVALID;
+	msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_MAX_CLIENTS);
+	dprintk(VIDC_WARN,
+			"%s: Too many clients\n", __func__);
+	mutex_unlock(&inst->sync_lock);
+}
+
 static void handle_session_init_done(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
@@ -475,7 +492,10 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 			dprintk(VIDC_ERR,
 				"Session init response from FW : 0x%x",
 				response->status);
-			msm_comm_generate_session_error(inst);
+			if (response->status == VIDC_ERR_MAX_CLIENTS)
+				msm_comm_generate_max_clients_error(inst);
+			else
+				msm_comm_generate_session_error(inst);
 		}
 		signal_session_msg_receipt(cmd, inst);
 	} else {
@@ -1473,7 +1493,8 @@ static int msm_comm_unset_ocmem(struct msm_vidc_core *core)
 		&core->completions[SYS_MSG_INDEX(RELEASE_RESOURCE_DONE)],
 		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
-		dprintk(VIDC_ERR, "Wait interrupted or timeout: %d\n", rc);
+		dprintk(VIDC_ERR, "%s: Wait interrupted or timeout: %d\n",
+			__func__, SYS_MSG_INDEX(RELEASE_RESOURCE_DONE));
 		rc = -EIO;
 	}
 release_ocmem_failed:
@@ -1495,7 +1516,8 @@ static int msm_comm_init_core_done(struct msm_vidc_inst *inst)
 		&core->completions[SYS_MSG_INDEX(SYS_INIT_DONE)],
 		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
-		dprintk(VIDC_ERR, "Wait interrupted or timeout: %d\n", rc);
+		dprintk(VIDC_ERR, "%s: Wait interrupted or timeout: %d\n",
+			__func__, SYS_MSG_INDEX(SYS_INIT_DONE));
 		rc = -EIO;
 		goto exit;
 	} else {
@@ -2576,7 +2598,9 @@ int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR,
-			"Wait interrupted or timeout: %d\n", rc);
+			"%s: Wait interrupted or timeout[%u]: %d\n",
+			__func__, (u32)inst->session,
+			SESSION_MSG_INDEX(SESSION_PROPERTY_INFO));
 		inst->state = MSM_VIDC_CORE_INVALID;
 		msm_comm_recover_from_session_error(inst);
 		rc = -EIO;
@@ -3336,7 +3360,10 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 		mutex_lock(&inst->sync_lock);
 		inst->state = MSM_VIDC_CORE_INVALID;
 		mutex_unlock(&inst->sync_lock);
-		msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_SYS_ERROR);
+		msm_vidc_queue_v4l2_event(inst,
+					V4L2_EVENT_MSM_VIDC_HW_OVERLOAD);
+		dprintk(VIDC_WARN,
+			"%s: Hardware is overloaded\n", __func__);
 		wake_up(&inst->kernel_event_queue);
 	}
 	return rc;
@@ -3387,8 +3414,9 @@ int msm_comm_recover_from_session_error(struct msm_vidc_inst *inst)
 		&inst->completions[SESSION_MSG_INDEX(SESSION_ABORT_DONE)],
 		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
-		dprintk(VIDC_ERR, "%s: Wait interrupted or timeout: %d\n",
-			__func__, rc);
+		dprintk(VIDC_ERR, "%s: Wait interrupted or timeout[%u]: %d\n",
+			__func__, (u32)inst->session,
+			SESSION_MSG_INDEX(SESSION_ABORT_DONE));
 		msm_comm_generate_sys_error(inst);
 	} else
 		change_inst_state(inst, MSM_VIDC_CLOSE_DONE);
