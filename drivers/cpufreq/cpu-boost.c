@@ -43,8 +43,10 @@ static DEFINE_PER_CPU(struct cpu_sync, sync_info);
 static struct workqueue_struct *cpu_boost_wq;
 
 static struct work_struct input_boost_work;
-
+//CAF version
 static unsigned int boost_ms;
+//LG version (shouldn't be needed)
+//static unsigned int boost_ms = 0;
 module_param(boost_ms, uint, 0644);
 
 static unsigned int sync_threshold;
