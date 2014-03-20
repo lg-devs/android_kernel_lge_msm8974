@@ -66,5 +66,6 @@ struct ispif_device {
 /*                                                                                                    */
 	struct wake_lock        camera_wake_lock;
 /*                                                                                                    */
+	uint32_t clk_idx;
 };
 #endif
