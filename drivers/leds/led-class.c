@@ -554,7 +554,7 @@ int led_pattern_sysfs_register(void)
 {
 	struct class *lg_rgb;
 	struct device *pattern_sysfs_dev;
-	lg_rgb = class_create(THIS_MODULE, "lg_rgb_led");
+	lg_rgb = class_create(THIS_MODULE, "g2_rgb_led");
 	if (IS_ERR(lg_rgb)) {
 		printk("Failed to create class(lg_rgb_led)!\n");
 	}
