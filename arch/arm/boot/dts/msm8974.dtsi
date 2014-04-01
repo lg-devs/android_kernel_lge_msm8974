@@ -1809,6 +1809,12 @@
 			qcom,smdtty-remote = "modem";
 			qcom,smdtty-port-name = "DATA11";
 		};
+    };
+
+	bimc_sharedmem {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0xfc380000 0x00100000>;
+		reg-names = "bimc";
 	};
 
 	qcom,smdtty {
