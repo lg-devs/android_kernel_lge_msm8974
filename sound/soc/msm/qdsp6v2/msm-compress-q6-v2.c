@@ -438,12 +438,6 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 	uint16_t bits_per_sample = 16;
 #endif
 	int dir = IN, ret = 0;
-	struct asm_softpause_params softpause = {
-		.enable = SOFT_PAUSE_ENABLE,
-		.period = SOFT_PAUSE_PERIOD,
-		.step = SOFT_PAUSE_STEP,
-		.rampingcurve = SOFT_PAUSE_CURVE_LINEAR,
-	};
 	struct asm_softvolume_params softvol = {
 		.period = SOFT_VOLUME_PERIOD,
 		.step = SOFT_VOLUME_STEP,
@@ -472,12 +466,6 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 	ret = msm_compr_set_volume(cstream, 0, 0);
 	if (ret < 0)
 		pr_err("%s : Set Volume failed : %d", __func__, ret);
-
-	ret = q6asm_set_softpause(prtd->audio_client,
-					&softpause);
-	if (ret < 0)
-		pr_err("%s: Send SoftPause Param failed ret=%d\n",
-			__func__, ret);
 
 	ret = q6asm_set_softvolume(prtd->audio_client, &softvol);
 	if (ret < 0)
