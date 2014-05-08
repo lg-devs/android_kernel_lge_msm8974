@@ -4355,31 +4355,11 @@ retry:
 		msmsdcc_dump_sdcc_state(host);
 		rc = -EAGAIN;
 
-		/*                                                                                      */
-		#if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
-		{
-			extern int lge_get_board_revno(void);
-			int bcmdhd_id = 2; /* sdcc 2 */
-			#if defined(CONFIG_MACH_MSM8974_G2_KR)
-			if (3 /*HW_REV_B*/ < lge_get_board_revno()) {
-			bcmdhd_id = 3; /* sdcc 3 */
-			}
-			#elif defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_G2_KDDI)
-			bcmdhd_id = 3; /* sdcc 3 */
-			#elif defined(CONFIG_MACH_MSM8974_B1_KR)
-			if (3 /*HW_REV_B*/ <= lge_get_board_revno() && 5 /*HW_REV_D*/ >= lge_get_board_revno()) {
-			bcmdhd_id = 2; /* sdcc 2 */
-			}else{
-			bcmdhd_id = 3;  /* sdcc 3 */
-			}
-			#endif
-			if (host->pdev->id == bcmdhd_id) {
-			    rc = 0;
-			    /* panic("Failed to tune.\n"); */ /*                                  */
-			}
+#if defined(CONFIG_WIFI_CONTROL_FUNC)
+		if (host->plat->wifi_control_func) {
+			rc = 0;
 		}
-		#endif
-		/*                                                                                      */
+#endif
 	}
 
 kfree:
