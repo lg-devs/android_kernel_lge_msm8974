@@ -2143,7 +2143,8 @@ qpnp_chg_dc_dcin_valid_irq_handler(int irq, void *_chip)
 #ifdef CONFIG_LGE_CHARGER_TEMP_SCENARIO
 		schedule_delayed_work(&chip->battemp_work, HZ*1);
 #endif
-		if (!dc_present && !qpnp_chg_is_usb_chg_plugged_in(chip)) {
+		if (!dc_present && (!qpnp_chg_is_usb_chg_plugged_in(chip) ||
+					qpnp_chg_is_otg_en_set(chip))) {
 			chip->delta_vddmax_mv = 0;
 			qpnp_chg_set_appropriate_vddmax(chip);
 			chip->chg_done = false;
@@ -2157,7 +2158,8 @@ qpnp_chg_dc_dcin_valid_irq_handler(int irq, void *_chip)
 				msecs_to_jiffies(1000));
 		}
 #else
-		if (!dc_present && !qpnp_chg_is_usb_chg_plugged_in(chip)) {
+		if (!dc_present && (!qpnp_chg_is_usb_chg_plugged_in(chip) ||
+					qpnp_chg_is_otg_en_set(chip))) {
 			chip->delta_vddmax_mv = 0;
 			qpnp_chg_set_appropriate_vddmax(chip);
 			chip->chg_done = false;
