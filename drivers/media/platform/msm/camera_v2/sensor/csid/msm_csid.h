@@ -23,6 +23,8 @@
 #include <linux/wakelock.h>
 /*                                                                                                                     */
 
+#define CSID_NUM_CLK_MAX  16
+
 enum msm_csid_state_t {
 	CSID_POWER_UP,
 	CSID_POWER_DOWN,
@@ -41,7 +43,7 @@ struct csid_device {
 	uint32_t hw_version;
 	enum msm_csid_state_t csid_state;
 
-	struct clk *csid_clk[11];
+	struct clk *csid_clk[CSID_NUM_CLK_MAX];
 /*                                                                                                                     */
 	struct wake_lock        csid_wake_lock;
 /*                                                                                                                     */
