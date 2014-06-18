@@ -28,7 +28,7 @@
 #endif
 
 // Original
-//#define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8080
+//#define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8010
 // LG version
 //#define DEFAULT_CONCEAL_COLOR 0x108080
 // New version
