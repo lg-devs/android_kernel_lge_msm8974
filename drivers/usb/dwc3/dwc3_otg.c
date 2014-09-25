@@ -40,6 +40,11 @@
 #define PARAMETER_OVERRIDE_X_REG (0xF8814)
 #define DEFAULT_HSPHY_INIT (0x00D195A4) /* qcom,dwc-hsphy-init */
 #endif
+
+#ifdef CONFIG_FORCE_FAST_CHARGE
+int usb_power_curr_now = 500;
+#endif
+
 #define VBUS_REG_CHECK_DELAY	(msecs_to_jiffies(1000))
 #define MAX_INVALID_CHRGR_RETRY 3
 static int max_chgr_retry_count = MAX_INVALID_CHRGR_RETRY;
@@ -677,6 +682,13 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 		return 0;
 
 	dev_info(phy->dev, "Avail curr from USB = %u\n", mA);
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	usb_power_curr_now = mA;
+	if (mA > 300)
+		smb349_thermal_mitigation_update(mA);
+	else
+		smb349_thermal_mitigation_update(300);
+#endif
 
 /*                                                                                           */
 #ifdef CONFIG_LGE_PM
