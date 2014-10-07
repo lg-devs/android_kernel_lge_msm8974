@@ -32,7 +32,7 @@
 #include "power.h"
 #endif
 
-#define DWC3_IDEV_CHG_MAX 1500
+#define DWC3_IDEV_CHG_MAX 1600
 
 #ifdef CONFIG_LGE_PM
 #define DWC3_IDEV_CHG_PROPRIETARY_MAX 1000
