@@ -44,7 +44,7 @@
 
 #ifdef CONFIG_FORCE_FAST_CHARGE
 int usb_power_curr_now = 500;
-struct mutex fast_charge_lock;
+static DEFINE_MUTEX(fast_charge_lock);
 #endif
 
 #define VBUS_REG_CHECK_DELAY	(msecs_to_jiffies(1000))
@@ -710,7 +710,6 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 	if (dwc3_otg_get_psy(phy) < 0)
 		goto psy_error;
 #ifdef CONFIG_FORCE_FAST_CHARGE
-		mutex_lock(&fast_charge_lock);
 		if ((force_fast_charge > 0) &&
 				(fake_charge_ac == FAKE_CHARGE_AC_ENABLE)) {
 			pr_info("msm_otg_notify_power_supply: "
@@ -721,7 +720,6 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 					"power_supply_get_by_name(usb)\n");
 			dotg->psy = power_supply_get_by_name("usb");
 		}
-		mutex_unlock(&fast_charge_lock);
 #else
 	if (strcmp(dotg->psy->name, "usb")) {
 		pr_info("%s psy name is %s, so change psy to usb.\n", __func__, dotg->psy->name);
@@ -1267,10 +1265,6 @@ int dwc3_otg_init(struct dwc3 *dwc)
 
 	dev_dbg(dwc->dev, "dwc3_otg_init\n");
 
-#ifdef CONFIG_FORCE_FAST_CHARGE
-	mutex_init(&fast_charge_lock);
-#endif
-
 	/*
 	 * GHWPARAMS6[10] bit is SRPSupport.
 	 * This bit also reflects DWC_USB3_EN_OTG
@@ -1405,10 +1399,6 @@ void dwc3_otg_exit(struct dwc3 *dwc)
 #if defined (CONFIG_TOUCHSCREEN_SYNAPTICS_G2) || defined (CONFIG_MACH_MSM8974_TIGERS)
 	if (touch_otg_wq)
 		destroy_workqueue(touch_otg_wq);
-#endif
-
-#ifdef CONFIG_FORCE_FAST_CHARGE
-	mutex_destroy(&fast_charge_lock);
 #endif
 
 #endif
