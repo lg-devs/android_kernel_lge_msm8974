@@ -207,6 +207,10 @@ int diag_hdlc_decode(struct diag_hdlc_decode_type *hdlc)
 							  ^ ESC_MASK;
 				}
 			} else if (src_byte == CONTROL_CHAR) {
+
+				if (len == 0) /*                              */
+					continue;
+
 				if (msg_start && i == 0 && src_length > 1)
 					continue;
 				/* Byte 0x7E will be considered
@@ -246,7 +250,6 @@ int crc_check(uint8_t *buf, uint16_t len)
 				   __func__, (int)buf, len);
 		return -EIO;
 	}
-
 	/*
 	 * Run CRC check for the original input. Skip the last 3 CRC
 	 * bytes
@@ -258,8 +261,15 @@ int crc_check(uint8_t *buf, uint16_t len)
 	sent_crc[0] = buf[len-3];
 	sent_crc[1] = buf[len-2];
 	if (crc != *((uint16_t *)sent_crc)) {
-		pr_debug("diag: In %s, crc mismatch. expected: %x, sent %x.\n",
+		pr_info("diag: In %s, crc mismatch. expected: %x, sent %x.\n",
 				__func__, crc, *((uint16_t *)sent_crc));
+#ifdef CONFIG_LGE_TESTMODE_CRC_SKIP
+		if (buf[0] == 0xFA)
+		{
+			pr_info("[LGE]Diag testmode packet incoming with bad CRC, but continue. subcmd = %x \n" , buf[1]);
+			return 0;
+		}
+#endif
 		return -EIO;
 	}
 

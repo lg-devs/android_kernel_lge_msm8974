@@ -1445,7 +1445,9 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 		goto err;
 	}
 	pdata->mclk_rate = mclk_rate;
-
+#ifdef CONFIG_MACH_LGE
+	dmic_sample_rate = WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED;
+#else
 	ret = of_property_read_u32(dev->of_node,
 				"qcom,cdc-dmic-sample-rate",
 				&dmic_sample_rate);
@@ -1455,6 +1457,7 @@ static struct wcd9xxx_pdata *wcd9xxx_populate_dt_pdata(struct device *dev)
 			dev->of_node->full_name);
 		dmic_sample_rate = WCD9XXX_DMIC_SAMPLE_RATE_UNDEFINED;
 	}
+#endif
 	if (pdata->mclk_rate == WCD9XXX_MCLK_CLK_9P6HZ) {
 		if ((dmic_sample_rate != WCD9XXX_DMIC_SAMPLE_RATE_2P4MHZ) &&
 		    (dmic_sample_rate != WCD9XXX_DMIC_SAMPLE_RATE_3P2MHZ) &&

@@ -208,6 +208,9 @@ struct msm_fb_data_type {
 	u32 dcm_state;
 	struct list_head proc_list;
 };
+#ifdef CONFIG_MACH_LGE
+int mdss_dsi_panel_invert(u32 enable);
+#endif
 
 static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
 {

@@ -745,13 +745,18 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 	 */
 	if (host->quirks & SDHCI_QUIRK_BROKEN_TIMEOUT_VAL)
 		return 0xE;
+#ifndef CONFIG_MACH_LGE
+	/*                                          */
+	/* QCT Case : 01383733 TD: 135796/OFFICIAL EVENT */
+	/* we agree that below code is not appied */
+	/* Hardware Interrupt occurs, since Data Timeout is longer than hadware interrupt time */
 
 	/* During initialization, don't use max timeout as the clock is slow */
 	if ((host->quirks2 & SDHCI_QUIRK2_USE_RESERVED_MAX_TIMEOUT) &&
 		(host->clock > 400000)) {
 		return 0xF;
 	}
-
+#endif
 	/* Unspecified timeout, assume max */
 	if (!data && !cmd->cmd_timeout_ms)
 		return 0xE;
@@ -1535,7 +1540,23 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	/* If polling, assume that the card is always present. */
 	if (host->quirks & SDHCI_QUIRK_BROKEN_CARD_DETECTION)
+#ifdef CONFIG_MACH_LGE
+	/*                                      
+                                                                 
+  */
+		{
+#ifndef CONFIG_MACH_MSM8974_B1_KR
+			if (mmc->index == 2)
+#else
+			if (mmc->index == 1)
+#endif
+				present = mmc_cd_get_status(mmc);
+			else
+				present = true;
+		}
+#else
 		present = true;
+#endif
 	else
 		present = sdhci_readl(host, SDHCI_PRESENT_STATE) &
 				SDHCI_CARD_PRESENT;
@@ -1975,8 +1996,16 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 		if (host->ops->check_power_status)
 			host->ops->check_power_status(host, REQ_BUS_OFF);
 
+		#ifdef CONFIG_MACH_LGE
+		/*                                      
+                             
+   */
+		usleep_range(10000, 15000);
+		#else
 		/* Wait for 1ms as per the spec */
 		usleep_range(1000, 1500);
+		#endif
+
 		pwr |= SDHCI_POWER_ON;
 		sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
 		if (host->ops->check_power_status)
@@ -2000,6 +2029,19 @@ static int sdhci_start_signal_voltage_switch(struct mmc_host *mmc,
 		return 0;
 	sdhci_runtime_pm_get(host);
 	err = sdhci_do_start_signal_voltage_switch(host, ios);
+
+	#ifdef CONFIG_MACH_LGE
+	/*                                      
+                                            
+  */
+	if (err == -EAGAIN)
+	{
+		usleep_range(5000, 5500);
+		err = sdhci_do_start_signal_voltage_switch(host, ios);
+		printk(KERN_INFO "[LGE][MMC][%-18s( )] check-point : %d)\n", __func__, err);
+	}
+	#endif
+
 	sdhci_runtime_pm_put(host);
 	return err;
 }
@@ -2661,6 +2703,14 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 			pr_msg = true;
 		}
 		if (pr_msg) {
+#ifdef CONFIG_MACH_LGE
+			if (intmask & SDHCI_INT_DATA_CRC)
+				printk(KERN_INFO "[LGE][MMC][%-18s( )]intmask is SDHCI_INT_DATA_CRC\n", __func__);
+
+			if (intmask & SDHCI_INT_DATA_TIMEOUT)
+				printk(KERN_INFO "[LGE][MMC][%-18s( )]intmask is SDHCI_INT_DATA_TIMEOUT\n", __func__);
+#endif
+
 			pr_err("%s: data txfr (0x%08x) error: %d after %lld ms\n",
 			       mmc_hostname(host->mmc), intmask,
 			       host->data->error, ktime_to_ms(ktime_sub(

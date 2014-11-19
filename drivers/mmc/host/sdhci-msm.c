@@ -40,6 +40,15 @@
 #include <mach/msm_bus.h>
 #include <linux/iopoll.h>
 
+#if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
+/*           
+                                                    
+                                              
+                            
+ */
+#include <linux/debugfs.h>
+#endif
+
 #include "sdhci-pltfm.h"
 
 #define SDHCI_VER_100		0x2B
@@ -331,6 +340,15 @@ enum vdd_io_level {
 	 */
 	VDD_IO_SET_LEVEL,
 };
+
+#if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
+/*           
+                                                    
+                                              
+                            
+ */
+static void msmsdhci_dbg_createhost(struct sdhci_msm_host *);
+#endif
 
 /* MSM platform specific tuning */
 static inline int msm_dll_poll_ck_out_en(struct sdhci_host *host,
@@ -2880,6 +2898,13 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 				MMC_CAP2_DETECT_ON_ERR);
 	msm_host->mmc->caps2 |= MMC_CAP2_SANITIZE;
 	msm_host->mmc->caps2 |= MMC_CAP2_CACHE_CTRL;
+	#ifdef CONFIG_MACH_LGE
+	/*
+                          
+                                                           
+ */
+	msm_host->mmc->caps2 |= MMC_CAP2_INIT_BKOPS;
+	#endif
 	msm_host->mmc->caps2 |= MMC_CAP2_POWEROFF_NOTIFY;
 	msm_host->mmc->caps2 |= MMC_CAP2_CLK_SCALE;
 	msm_host->mmc->caps2 |= MMC_CAP2_STOP_REQUEST;
@@ -2903,6 +2928,10 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 			goto vreg_deinit;
 		}
 	}
+
+    #ifdef CONFIG_MACH_LGE
+	irq_set_irq_wake(host->mmc->hotplug.irq, 1);
+    #endif
 
 	if (dma_supported(mmc_dev(host->mmc), DMA_BIT_MASK(32))) {
 		host->dma_mask = DMA_BIT_MASK(32);
@@ -2945,6 +2974,16 @@ static int __devinit sdhci_msm_probe(struct platform_device *pdev)
 		pm_runtime_enable(&pdev->dev);
 
 	/* Successful initialization */
+
+#if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
+/*           
+                                                    
+                                        
+                            
+ */
+    msmsdhci_dbg_createhost(msm_host);
+#endif
+
 	goto out;
 
 remove_max_bus_bw_file:
@@ -3054,12 +3093,18 @@ static int sdhci_msm_runtime_resume(struct device *dev)
 static int sdhci_msm_suspend(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
+
+    #ifndef CONFIG_MACH_LGE
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+    #endif
+
 	int ret = 0;
 
+    #ifndef CONFIG_MACH_LGE
 	if (gpio_is_valid(msm_host->pdata->status_gpio))
 		mmc_cd_gpio_free(msm_host->mmc);
+    #endif
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: already runtime suspended\n",
@@ -3075,10 +3120,15 @@ out:
 static int sdhci_msm_resume(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
+
+    #ifndef CONFIG_MACH_LGE
 	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
 	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+    #endif
+
 	int ret = 0;
 
+    #ifndef CONFIG_MACH_LGE
 	if (gpio_is_valid(msm_host->pdata->status_gpio)) {
 		ret = mmc_cd_gpio_request(msm_host->mmc,
 				msm_host->pdata->status_gpio);
@@ -3086,6 +3136,7 @@ static int sdhci_msm_resume(struct device *dev)
 			pr_err("%s: %s: Failed to request card detection IRQ %d\n",
 					mmc_hostname(host->mmc), __func__, ret);
 	}
+    #endif
 
 	if (pm_runtime_suspended(dev)) {
 		pr_debug("%s: %s: runtime suspended, defer system resume\n",
@@ -3132,3 +3183,207 @@ module_platform_driver(sdhci_msm_driver);
 
 MODULE_DESCRIPTION("Qualcomm Secure Digital Host Controller Interface driver");
 MODULE_LICENSE("GPL v2");
+
+#if defined(CONFIG_MACH_LGE) && defined(CONFIG_MMC_MSM_DEBUGFS)
+/*           
+                                                    
+                                        
+                            
+ */
+static int gpio_to_value(int cfg)
+{
+	switch (cfg) {
+	case GPIO_CFG_2MA:
+		return 2;
+		break;
+	case GPIO_CFG_4MA:
+		return 4;
+		break;
+	case GPIO_CFG_6MA:
+		return 6;
+		break;
+	case GPIO_CFG_8MA:
+		return 8;
+		break;
+	case GPIO_CFG_10MA:
+		return 10;
+		break;
+	case GPIO_CFG_12MA:
+		return 12;
+		break;
+	case GPIO_CFG_14MA:
+		return 14;
+		break;
+	case GPIO_CFG_16MA:
+		return 16;
+		break;
+	}
+	return -1;
+}
+
+static int value_to_gpio(int value)
+{
+	switch (value) {
+	case 2:
+		return GPIO_CFG_2MA;
+		break;
+	case 4:
+		return GPIO_CFG_4MA;
+		break;
+	case 6:
+		return GPIO_CFG_6MA;
+		break;
+	case 8:
+		return GPIO_CFG_8MA;
+		break;
+	case 10:
+		return GPIO_CFG_10MA;
+		break;
+	case 12:
+		return GPIO_CFG_12MA;
+		break;
+	case 14:
+		return GPIO_CFG_14MA;
+		break;
+	case 16:
+		return GPIO_CFG_16MA;
+		break;
+	}
+	return -1;
+}
+
+static int msmsdhci_dbg_strength_open(struct inode *inode, struct file *filp)
+{
+	filp->private_data = inode->i_private;
+	return 0;
+}
+
+static int msmsdhci_dbg_strength_read(struct file *filp, char __user *ubuf,
+		size_t cnt, loff_t *ppos)
+{
+	char buf[512] = {0, };
+	int i = 0;
+	struct sdhci_msm_host *host = filp->private_data;
+	struct sdhci_msm_pad_data *curr;
+	struct sdhci_msm_gpio_data *gpio_curr;
+	int clk = -1, cmd = -1, data = -1;
+
+	if (!host || !host->pdata || !host->pdata->pin_data)
+		return 0;
+	if (host->pdata->pin_data->is_gpio) {
+		gpio_curr = host->pdata->pin_data->gpio_data;
+		sprintf(buf, "%s : gpio\n", host->mmc ? mmc_hostname(host->mmc) : "unknown");
+		for (i = 0; i < gpio_curr->size; i++) {
+			if (gpio_is_valid(gpio_curr->gpio[i].no)) {
+				sprintf(buf, "%s%s: %d\n", buf,
+						gpio_curr->gpio[i].name,
+						gpio_curr->gpio[i].no);
+			}
+		}
+		return simple_read_from_buffer(ubuf, cnt, ppos, buf, 128);
+	}
+
+	curr = host->pdata->pin_data->pad_data;
+	for (i = 0; i < curr->drv->size; i++) {
+		switch (curr->drv->on[i].no) {
+		case TLMM_HDRV_SDC1_CLK:
+		case TLMM_HDRV_SDC2_CLK:
+		case TLMM_HDRV_SDC3_CLK:
+		case TLMM_HDRV_SDC4_CLK:
+			clk = gpio_to_value(curr->drv->on[i].val);
+			break;
+		case TLMM_HDRV_SDC1_CMD:
+		case TLMM_HDRV_SDC2_CMD:
+		case TLMM_HDRV_SDC3_CMD:
+		case TLMM_HDRV_SDC4_CMD:
+			cmd = gpio_to_value(curr->drv->on[i].val);
+			break;
+		case TLMM_HDRV_SDC1_DATA:
+		case TLMM_HDRV_SDC2_DATA:
+		case TLMM_HDRV_SDC3_DATA:
+		case TLMM_HDRV_SDC4_DATA:
+			data = gpio_to_value(curr->drv->on[i].val);
+			break;
+		default:
+			continue;
+		}
+	}
+	sprintf(buf, "%d %d %d\n", clk, cmd, data);
+
+	return simple_read_from_buffer(ubuf, cnt, ppos, buf, 512);
+}
+
+static int msmsdhci_dbg_strength_write(struct file *filp,
+		const char __user *ubuf, size_t cnt,
+		loff_t *ppos)
+{
+	struct sdhci_msm_host *host = filp->private_data;
+	struct sdhci_msm_pad_data *curr;
+	int i;
+	int clk, cmd, data, value;
+
+	if (!host || !host->pdata || !host->pdata->pin_data)
+		return 0;
+	if (host->pdata->pin_data->is_gpio)
+		return 0;
+
+	if (sscanf(ubuf, "%d %d %d", &clk, &cmd, &data) != 3)
+		return 0;
+
+	curr = host->pdata->pin_data->pad_data;
+	for (i = 0; i < curr->drv->size; i++) {
+		switch (curr->drv->on[i].no) {
+		case TLMM_HDRV_SDC1_CLK:
+		case TLMM_HDRV_SDC2_CLK:
+		case TLMM_HDRV_SDC3_CLK:
+		case TLMM_HDRV_SDC4_CLK:
+			value = value_to_gpio(clk);
+			if (value == -1)
+				continue;
+			curr->drv->on[i].val = value;
+			break;
+		case TLMM_HDRV_SDC1_CMD:
+		case TLMM_HDRV_SDC2_CMD:
+		case TLMM_HDRV_SDC3_CMD:
+		case TLMM_HDRV_SDC4_CMD:
+			value = value_to_gpio(cmd);
+			if (value == -1)
+				continue;
+			curr->drv->on[i].val = value;
+			break;
+		case TLMM_HDRV_SDC1_DATA:
+		case TLMM_HDRV_SDC2_DATA:
+		case TLMM_HDRV_SDC3_DATA:
+		case TLMM_HDRV_SDC4_DATA:
+			value = value_to_gpio(data);
+			if (value == -1)
+				continue;
+			curr->drv->on[i].val = value;
+			break;
+		default:
+			continue;
+		}
+		msm_tlmm_set_hdrive(curr->drv->on[i].no,
+				curr->drv->on[i].val);
+	}
+	return cnt;
+}
+
+static const struct file_operations msmsdhci_dbg_strength_fops = {
+	.open = msmsdhci_dbg_strength_open,
+	.read = msmsdhci_dbg_strength_read,
+	.write = msmsdhci_dbg_strength_write,
+};
+
+static void msmsdhci_dbg_createhost(struct sdhci_msm_host *host)
+{
+	struct mmc_host *mmc = host->mmc;
+
+	if (!mmc || !mmc->debugfs_root)
+		return;
+
+	debugfs_create_file("strength",
+			S_IROTH | S_IWOTH | S_IRGRP | S_IWGRP | S_IRUSR | S_IWUSR,
+			mmc->debugfs_root, host, &msmsdhci_dbg_strength_fops);
+}
+#endif /*CONFIG_MMC_MSM_DEBUGFS*/

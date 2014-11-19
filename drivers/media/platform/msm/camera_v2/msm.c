@@ -438,7 +438,7 @@ static inline int __msm_sd_close_subdevs(struct msm_sd_subdev *msm_sd,
 static inline int __msm_destroy_session_streams(void *d1, void *d2)
 {
 	struct msm_stream *stream = d1;
-	pr_err("%s: Destroyed here due to list is not empty\n", __func__);
+    pr_err("%s: Destroyed here due to list is not empty\n", __func__);  /*                                                             */
 	INIT_LIST_HEAD(&stream->queued_list);
 	return 0;
 }
@@ -696,6 +696,11 @@ int msm_post_event(struct v4l2_event *event, int timeout)
 		if (rc < 0) {
 			pr_err("%s: rc = %d\n", __func__, rc);
 			mutex_unlock(&session->lock);
+/*                                                                    */
+			pr_err("%s: ===== Camera Recovery Start! ===== \n", __func__);
+			dump_stack();
+			send_sig(SIGKILL, current, 0);
+/*                                                                    */
 			return rc;
 		}
 	}

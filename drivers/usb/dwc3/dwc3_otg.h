@@ -20,7 +20,11 @@
 #include <linux/power_supply.h>
 
 #include <linux/usb/otg.h>
+#if defined(CONFIG_LGE_PM)
+#include "../../base/power/power.h"
+#else
 #include "power.h"
+#endif
 
 #define DWC3_IDEV_CHG_MAX 1500
 
@@ -41,7 +45,11 @@ struct dwc3_otg {
 	struct dwc3		*dwc;
 	void __iomem		*regs;
 	struct regulator	*vbus_otg;
+#ifdef CONFIG_MACH_LGE
+	struct work_struct      touch_work;
+#endif
 	struct delayed_work	sm_work;
+	struct workqueue_struct *sm_wq;
 	struct dwc3_charger	*charger;
 	struct dwc3_ext_xceiv	*ext_xceiv;
 #define ID		0
@@ -89,6 +97,9 @@ struct dwc3_charger {
 	/* to notify OTG about charger detection completion, provided by OTG */
 	void	(*notify_detection_complete)(struct usb_otg *otg,
 						struct dwc3_charger *charger);
+#ifdef CONFIG_LGE_PM
+	void    (*start_ta_detection)(void);
+#endif
 };
 
 /* for external charger driver */
