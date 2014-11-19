@@ -42,8 +42,13 @@
 #define LPASS_BE_SEC_MI2S_TX "SEC_MI2S_TX"
 #define LPASS_BE_PRI_MI2S_RX "PRI_MI2S_RX"
 #define LPASS_BE_PRI_MI2S_TX "PRI_MI2S_TX"
+#ifdef CONFIG_SND_FM_RADIO
+#define LPASS_BE_TERT_MI2S_RX "TERT_MI2S_RX"
+#define LPASS_BE_TERT_MI2S_TX "TERT_MI2S_TX"
+#else
 #define LPASS_BE_TERT_MI2S_RX "TERTIARY_MI2S_RX"
 #define LPASS_BE_TERT_MI2S_TX "TERTIARY_MI2S_TX"
+#endif
 #define LPASS_BE_AUDIO_I2S_RX "AUDIO_I2S_RX"
 #define LPASS_BE_STUB_RX "STUB_RX"
 #define LPASS_BE_STUB_TX "STUB_TX"
@@ -143,7 +148,7 @@ enum msm_pcm_routing_event {
  * dspst_id:  DSP audio stream ID
  * stream_type: playback or capture
  */
-void msm_pcm_routing_reg_phy_stream(int fedai_id, bool perf_mode, int dspst_id,
+void msm_pcm_routing_reg_phy_stream(int fedai_id, int perf_mode, int dspst_id,
 	int stream_type);
 void msm_pcm_routing_reg_psthr_stream(int fedai_id, int dspst_id,
 		int stream_type);

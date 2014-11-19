@@ -1176,8 +1176,11 @@ static void handle_fbd(enum command_response cmd, void *data)
 			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_DROP_FRAME;
 		switch (fill_buf_done->picture_type) {
 		case HAL_PICTURE_IDR:
+//                                                                                                         
+			//vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_IDRFRAME;
 			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_IDRFRAME;
-			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_KEYFRAME;
+			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_KEYFRAME; 
+//                                                                                                         
 			break;
 		case HAL_PICTURE_I:
 			vb->v4l2_buf.flags |= V4L2_BUF_FLAG_KEYFRAME;
@@ -1737,6 +1740,7 @@ static int msm_vidc_load_resources(int flipped_state,
 	int num_mbs_per_sec = 0;
 	int height, width;
 
+	//                                                                                         
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters", __func__);
 		return -EINVAL;

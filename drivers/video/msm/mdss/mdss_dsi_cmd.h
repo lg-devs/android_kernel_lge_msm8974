@@ -30,7 +30,15 @@ struct mdss_dsi_ctrl_pdata;
 
 #define MDSS_DSI_MRPS	0x04  /* Maximum Return Packet Size */
 
+#ifdef CONFIG_LGE_ESD_CHECK
+/*             
+                           
+                                
+*/
+#define MDSS_DSI_LEN 44
+#else
 #define MDSS_DSI_LEN 8 /* 4 x 4 - 6 - 2, bytes dcs header+crc-align  */
+#endif
 
 struct dsi_buf {
 	u32 *hdr;	/* dsi host header */

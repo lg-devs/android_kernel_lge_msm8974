@@ -18,7 +18,6 @@
 
 #define FLASH_NAME "camera-led-flash"
 
-/*#define CONFIG_MSMB_CAMERA_DEBUG*/
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
@@ -61,6 +60,7 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 
 	switch (cfg->cfgtype) {
 	case MSM_CAMERA_LED_OFF:
+		CDBG("%s:%d MSM_CAMERA_LED_OFF\n", __func__, __LINE__);
 		for (i = 0; i < fctrl->num_sources; i++)
 			if (fctrl->flash_trigger[i])
 				led_trigger_event(fctrl->flash_trigger[i], 0);
@@ -69,6 +69,7 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 		break;
 
 	case MSM_CAMERA_LED_LOW:
+		CDBG("%s:%d MSM_CAMERA_LED_LOW\n", __func__, __LINE__);
 		if (fctrl->torch_trigger) {
 			max_curr_l = fctrl->torch_max_current;
 			if (cfg->torch_current > 0 &&
@@ -85,6 +86,7 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 		break;
 
 	case MSM_CAMERA_LED_HIGH:
+		CDBG("%s:%d MSM_CAMERA_LED_HIGH\n", __func__, __LINE__);
 		if (fctrl->torch_trigger)
 			led_trigger_event(fctrl->torch_trigger, 0);
 		for (i = 0; i < fctrl->num_sources; i++)
@@ -102,15 +104,73 @@ static int32_t msm_led_trigger_config(struct msm_led_flash_ctrl_t *fctrl,
 					curr_l);
 			}
 		break;
+/*                                                              */
+#if 1
+	case MSM_CAMERA_LED_HIGH_20P:
+		/* 130 */
+		for (i = 0; i < fctrl->num_sources; i++)
+		{
+		CDBG("MSM_CAMERA_LED_HIGH_20P   ->flash_op_current[i] =	%d\n", 130);
+			if (fctrl->flash_trigger[i])
+				led_trigger_event(fctrl->flash_trigger[i],
+					42);//130);
+		}
+		break;
+	case MSM_CAMERA_LED_HIGH_40P:
+		/* 260 */
+		for (i = 0; i < fctrl->num_sources; i++)
+		{
+		CDBG("MSM_CAMERA_LED_HIGH_40P   ->flash_op_current[i] =	%d\n", 260);
+			if (fctrl->flash_trigger[i])
+				led_trigger_event(fctrl->flash_trigger[i],
+					84);//260);
+		}
+		break;
+	case MSM_CAMERA_LED_HIGH_60P:
+		/* 390 */
+		for (i = 0; i < fctrl->num_sources; i++)
+		{
+		CDBG("MSM_CAMERA_LED_HIGH_60P   ->flash_op_current[i] =	%d\n", 390);
+			if (fctrl->flash_trigger[i])
+				led_trigger_event(fctrl->flash_trigger[i],
+					168);//390);
+		}
+		break;
+	case MSM_CAMERA_LED_HIGH_80P:
+		/* 520 */
+		for (i = 0; i < fctrl->num_sources; i++)
+		{
+		CDBG("MSM_CAMERA_LED_HIGH_80P   ->flash_op_current[i] =	%d\n", 520);
+			if (fctrl->flash_trigger[i])
+				led_trigger_event(fctrl->flash_trigger[i],
+					336);//520);
+		}
+		break;
+#endif
+/*                                                              */
 
 	case MSM_CAMERA_LED_INIT:
 	case MSM_CAMERA_LED_RELEASE:
+		CDBG("%s:%d MSM_CAMERA_LED_RELEASE\n", __func__, __LINE__);
 		for (i = 0; i < fctrl->num_sources; i++)
 			if (fctrl->flash_trigger[i])
 				led_trigger_event(fctrl->flash_trigger[i], 0);
 		if (fctrl->torch_trigger)
 			led_trigger_event(fctrl->torch_trigger, 0);
 		break;
+
+#if defined(CONFIG_MACH_LGE)
+/*           
+                                    
+                                
+ */
+	case MSM_CAMERA_LED_TORCH:		//For torch, Video recording
+		CDBG("%s:%d MSM_CAMERA_LED_TORCH\n", __func__, __LINE__);
+		if (fctrl->torch_trigger)
+			led_trigger_event(fctrl->torch_trigger,
+				200);
+		break;
+#endif
 
 	default:
 		rc = -EFAULT;

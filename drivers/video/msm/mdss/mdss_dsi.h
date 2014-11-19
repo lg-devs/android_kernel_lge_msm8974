@@ -47,7 +47,6 @@
 #define MIPI_DSI_PANEL_WUXGA	7
 #define MIPI_DSI_PANEL_720P_PT	8
 #define DSI_PANEL_MAX	8
-
 enum {		/* mipi dsi panel */
 	DSI_VIDEO_MODE,
 	DSI_CMD_MODE,
@@ -154,6 +153,15 @@ extern struct device dsi_dev;
 extern int mdss_dsi_clk_on;
 extern u32 dsi_irq;
 
+#ifdef CONFIG_LGE_LCD_TUNING
+/*             
+                                          
+                                   
+*/
+extern struct dsi_cmd_desc *dsi_panel_tun_cmds;
+extern int num_of_tun_cmds;
+#endif
+
 struct dsiphy_pll_divider_config {
 	u32 clk_rate;
 	u32 fb_divider;
@@ -195,6 +203,10 @@ struct dsi_clk_desc {
 	u32 pre_div_func;
 };
 
+#ifdef CONFIG_LGE_SUPORT_OLED_TUNING
+#define DSI_LANE_CTRL_HS_MASK	0x10000000
+#define DSI_LANE_CTRL_LP_MASK	0x0FFFFFFF
+#endif
 
 struct dsi_panel_cmds {
 	char *buf;
@@ -298,7 +310,17 @@ int mdss_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 
 int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 			struct dsi_cmd_desc *cmds, int rlen);
-
+#ifdef CONFIG_LGE_ESD_CHECK
+/*             
+                           
+                                
+*/
+void mdss_dsi_cmds_mode1(struct mdss_panel_data *pdata);
+void mdss_dsi_cmds_mode2(struct mdss_panel_data *pdata);
+#endif
+#if defined(CONFIG_LGE_SUPORT_OLED_TUNING)
+int mdss_dsi_panel_img_tune_apply(unsigned int screen_mode);
+#endif
 void mdss_dsi_host_init(struct mipi_panel_info *pinfo,
 				struct mdss_panel_data *pdata);
 void mdss_dsi_op_mode_config(int mode,

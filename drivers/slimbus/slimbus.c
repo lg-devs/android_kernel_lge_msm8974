@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -313,14 +313,12 @@ static void slim_report(struct work_struct *work)
 			sbdrv->device_down(sbdev);
 		return;
 	}
-	if (sbdev->notified)
+	if (sbdev->notified || !sbdrv)
 		return;
 	ret = slim_get_logical_addr(sbdev, sbdev->e_addr, 6, &laddr);
 	if (!ret) {
-		if (sbdrv)
-			sbdev->notified = true;
-		if (sbdrv->device_up)
-			sbdrv->device_up(sbdev);
+		sbdev->notified = true;
+		sbdrv->device_up(sbdev);
 	}
 }
 
@@ -773,6 +771,15 @@ int slim_assign_laddr(struct slim_controller *ctrl, const u8 *e_addr,
 	u8 i = 0;
 	bool exists = false;
 	struct slim_device *sbdev;
+#ifdef CONFIG_SND_SOC_ES325_SLIM
+	/*              
+                                                                    
+                                
+ */
+	struct sbi_boardinfo *bi;
+	struct list_head *pos;
+#endif /* CONFIG_SND_SOC_ES325_SLIM */
+
 	mutex_lock(&ctrl->m_ctrl);
 	/* already assigned */
 	if (ctrl_getlogical_addr(ctrl, e_addr, e_len, &i) == 0) {
@@ -813,6 +820,22 @@ int slim_assign_laddr(struct slim_controller *ctrl, const u8 *e_addr,
 	}
 	ctrl->addrt[i].laddr = *laddr;
 
+#ifdef CONFIG_SND_SOC_ES325_SLIM
+	/*              
+                                                                    
+                                
+ */
+	list_for_each(pos, &board_list) {
+		bi = list_entry(pos, struct sbi_boardinfo, list);
+		if (memcmp(e_addr, bi->board_info.slim_slave->e_addr, 6) == 0) {
+			if (bi->board_info.slim_slave) {
+				bi->board_info.slim_slave->laddr = *laddr;
+				dev_dbg(&ctrl->dev, "es325 MLB: assigned la=%d to sbdev=%p\n",*laddr, bi->board_info.slim_slave);
+				break;
+			}
+		}
+	}
+#endif /* CONFIG_SND_SOC_ES325_SLIM */
 	dev_dbg(&ctrl->dev, "setting slimbus l-addr:%x\n", *laddr);
 ret_assigned_laddr:
 	mutex_unlock(&ctrl->m_ctrl);

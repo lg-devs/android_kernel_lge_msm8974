@@ -397,7 +397,6 @@ done:
 	return ret;
 }
 
-
 static int msm_voice_rx_device_mute_put(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {

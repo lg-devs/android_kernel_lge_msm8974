@@ -68,6 +68,101 @@ static u8 qpnp_read_byte(struct spmi_device *spmi, u16 addr)
 	}
 	return val;
 }
+#if defined(CONFIG_SMB349_CHARGER) || defined(CONFIG_BQ24192_CHARGER)
+struct spmi_device		*the_spmi;
+#define SMBB_BAT_IF_BAT_PRES_STATUS 0x1208
+#endif
+
+#ifdef CONFIG_SMB349_CHARGER
+static int
+smb349_qpnp_write(struct spmi_device *spmi, u16 addr, u8 val)
+{
+	int rc;
+
+	rc = spmi_ext_register_writel(spmi->ctrl, spmi->sid, addr, &val, 1);
+	if (rc) {
+		pr_err("spmi write failed: addr=%03X, rc=%d\n", addr, rc);
+		return rc;
+	}
+
+	return 0;
+}
+int smb349_pmic_usb_override(bool mode)
+{
+	int rc;
+
+	if (!the_spmi) {
+		pr_err("fail to override spmi not init\n");
+		return -ENODEV;
+	}
+	if (mode) {
+		/* charger insert case */
+		rc = smb349_qpnp_write(the_spmi, 0x13D0, 0xA5);
+		if (rc) {
+			pr_err("failed to write pmic 0x13D0 ret:%d\n", rc);
+			return rc;
+		}
+		rc = smb349_qpnp_write(the_spmi, 0x13EA, 0x2F);
+		if (rc) {
+			pr_err("failed to write pmic 0x13EA ret:%d\n", rc);
+			return rc;
+		}
+	} else {
+		/* charser remove case */
+		rc = smb349_qpnp_write(the_spmi, 0x13D0, 0xA5);
+		if (rc) {
+			pr_err("failed to write pmic 0x13D0 ret:%d\n", rc);
+			return rc;
+		}
+		rc = smb349_qpnp_write(the_spmi, 0x13EA, 0x00);
+		if (rc) {
+			pr_err("failed to write pmic 0x13D0 ret:%d\n", rc);
+			return rc;
+		}
+	}
+
+	return 0;
+}
+bool smb349_pmic_batt_present(void)
+{
+	int rc;
+	u8  val;
+
+	if (!the_spmi) {
+		pr_err("fail to override spmi not init\n");
+		return true;
+	}
+	rc = spmi_ext_register_readl(the_spmi->ctrl,
+				the_spmi->sid, SMBB_BAT_IF_BAT_PRES_STATUS, &val, 1);
+	if (rc) {
+		pr_err("failed to read pmic 0x1208 rc:%d\n", rc);
+		return true;
+	}
+
+	return val & BIT(7);
+}
+#endif
+
+#ifdef CONFIG_BQ24192_CHARGER
+bool bq24192_pmic_batt_present(void)
+{
+	int rc;
+	u8  val;
+
+	if (!the_spmi) {
+		pr_err("fail to override spmi not init\n");
+		return true;
+	}
+	rc = spmi_ext_register_readl(the_spmi->ctrl,
+				the_spmi->sid, SMBB_BAT_IF_BAT_PRES_STATUS, &val, 1);
+	if (rc) {
+		pr_err("failed to read pmic 0x1208 rc:%d\n", rc);
+		return true;
+	}
+
+	return val & BIT(7);
+}
+#endif
 
 static struct qpnp_misc_version irq_support_version[] = {
 	{0x01, 0x02}, /* PM8941 */
@@ -153,6 +248,9 @@ static int __devinit qpnp_misc_probe(struct spmi_device *spmi)
 	mdev->spmi = spmi;
 	mdev->dev = &(spmi->dev);
 	mdev->resource = resource;
+#if defined(CONFIG_SMB349_CHARGER) || defined(CONFIG_BQ24192_CHARGER)
+	the_spmi = spmi;
+#endif
 
 	mutex_lock(&qpnp_misc_dev_list_mutex);
 	list_add_tail(&mdev->list, &qpnp_misc_dev_list);

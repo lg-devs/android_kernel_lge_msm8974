@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -225,9 +225,9 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 	u32 *pbuf;
 	u8 *puc;
 	int ret = 0;
-	u8 la = txn->la;
-	u8 txn_mt;
+	u8 txn_mt ;
 	u16 txn_mc = txn->mc;
+	u8 la = txn->la;
 	u8 wbuf[SLIM_MSGQ_BUF_LEN];
 
 	if (!pm_runtime_enabled(dev->dev) && dev->state == MSM_CTRL_ASLEEP &&
@@ -282,7 +282,7 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 				return -EREMOTEIO;
 			timeout = wait_for_completion_timeout(&dev->ctrl_up,
 							HZ);
-			if (!timeout)
+			if (!timeout && dev->state == MSM_CTRL_DOWN)
 				return -ETIMEDOUT;
 		}
 		msm_slim_get_ctrl(dev);
@@ -491,6 +491,7 @@ static int ngd_xferandwait_ack(struct slim_controller *ctrl,
 	if (ret) {
 		pr_err("master msg:0x%x,tid:%d ret:%d", txn->mc,
 				txn->tid, ret);
+		WARN(1, "timeout during xfer and wait");
 		mutex_lock(&ctrl->m_ctrl);
 		ctrl->txnt[txn->tid] = NULL;
 		mutex_unlock(&ctrl->m_ctrl);
@@ -870,6 +871,9 @@ static int ngd_slim_power_up(struct msm_slim_ctrl *dev)
 	timeout = wait_for_completion_timeout(&dev->reconf, HZ);
 	if (!timeout) {
 		pr_err("failed to received master capability");
+#ifdef CONFIG_MACH_MSM8974_VU3_KR
+		panic("failed to received master capability by vu3 audio team");
+#endif	
 		return -ETIMEDOUT;
 	}
 	if (cur_state == MSM_CTRL_DOWN)

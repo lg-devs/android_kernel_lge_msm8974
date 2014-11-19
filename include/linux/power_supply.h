@@ -138,6 +138,33 @@ enum power_supply_property {
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_SYSTEM_TEMP_LEVEL,
 	POWER_SUPPLY_PROP_RESISTANCE,
+#if defined(CONFIG_LGE_PM_BATTERY_ID_CHECKER)
+	POWER_SUPPLY_PROP_BATTERY_ID_CHECKER,
+#endif
+#ifdef CONFIG_LGE_PM
+	POWER_SUPPLY_PROP_PSEUDO_BATT,
+	POWER_SUPPLY_PROP_EXT_PWR_CHECK,
+	POWER_SUPPLY_PROP_BAT_REMOVED,
+#endif
+#if defined(CONFIG_LGE_CURRENTNOW)
+	/*                                                
+                                        
+*/
+	POWER_SUPPLY_PROP_VIRT_CURRENT_NOW,
+	POWER_SUPPLY_PROP_VIRT_ENABLE_BMS,
+	/*                                                 */
+#endif
+#ifdef CONFIG_FTT_CHARGER_V3
+	POWER_SUPPLY_PROP_FTT_ANNTENA_LEVEL,
+#endif
+#ifdef CONFIG_MAX17050_FUELGAUGE
+/*                                                      */
+	POWER_SUPPLY_PROP_BATTERY_CONDITION,
+	POWER_SUPPLY_PROP_BATTERY_AGE,
+#endif
+#ifdef CONFIG_SMB349_VZW_FAST_CHG
+	POWER_SUPPLY_PROP_VZW_CHG_STATE,
+#endif
 	/* Properties of type `const char *' */
 	POWER_SUPPLY_PROP_MODEL_NAME,
 	POWER_SUPPLY_PROP_MANUFACTURER,
@@ -153,6 +180,9 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_DCP,	/* Dedicated Charging Port */
 	POWER_SUPPLY_TYPE_USB_CDP,	/* Charging Downstream Port */
 	POWER_SUPPLY_TYPE_USB_ACA,	/* Accessory Charger Adapters */
+#ifdef CONFIG_WIRELESS_CHARGER
+	POWER_SUPPLY_TYPE_WIRELESS,
+#endif
 	POWER_SUPPLY_TYPE_BMS,		/* Battery Monitor System */
 };
 
@@ -242,6 +272,12 @@ extern int power_supply_register(struct device *parent,
 				 struct power_supply *psy);
 extern void power_supply_unregister(struct power_supply *psy);
 extern int power_supply_powers(struct power_supply *psy, struct device *dev);
+
+#ifdef CONFIG_ZERO_WAIT
+extern void power_supply_forbid_change_all(void);
+extern void power_supply_permit_change_all(void);
+#endif	/* CONFIG_ZERO_WAIT */
+
 #else
 static inline struct power_supply *power_supply_get_by_name(char *name)
 							{ return NULL; }
@@ -279,6 +315,12 @@ static inline void power_supply_unregister(struct power_supply *psy) { }
 static inline int power_supply_powers(struct power_supply *psy,
 				      struct device *dev)
 							{ return -ENOSYS; }
+
+#ifdef CONFIG_ZERO_WAIT
+static inline void power_supply_forbid_change_all(struct power_supply *psy) { }
+static inline void power_supply_permit_change_all(struct power_supply *psy) { }
+#endif	/* CONFIG_ZERO_WAIT */
+
 #endif
 
 /* For APM emulation, think legacy userspace. */

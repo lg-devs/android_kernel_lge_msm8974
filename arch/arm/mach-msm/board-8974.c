@@ -48,6 +48,7 @@
 #include "pm.h"
 #include "modem_notifier.h"
 #include "platsmp.h"
+#include <mach/board_lge.h>
 
 
 static struct memtype_reserve msm8974_reserve_table[] __initdata = {

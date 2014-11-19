@@ -1655,6 +1655,28 @@ static int venus_hfi_is_cmd_pending(struct venus_hfi_device *dev)
 	return rc;
 }
 
+/*                                                                                   */
+static int venus_hfi_is_msg_pending(struct venus_hfi_device *dev)
+{
+	struct hfi_queue_header *queue;
+	struct vidc_iface_q_info *q_info;
+	u32 write_ptr, read_ptr;
+	u32 rc = 0;
+	q_info = &dev->iface_queues[VIDC_IFACEQ_MSGQ_IDX];
+	if (!q_info)
+		dprintk(VIDC_ERR, "cannot read shared Q's");
+	queue = (struct hfi_queue_header *) q_info->q_hdr;
+	if (!queue) {
+		dprintk(VIDC_ERR, "queue not present");
+		return -ENOENT;
+	}
+	write_ptr = (u32)queue->qhdr_write_idx;
+	read_ptr = (u32)queue->qhdr_read_idx;
+	rc = read_ptr - write_ptr;
+	return rc;
+}
+/*                                                                                   */
+
 static inline void venus_hfi_clk_gating_on(struct venus_hfi_device *device)
 {
 	if (!device) {
@@ -1667,9 +1689,14 @@ static inline void venus_hfi_clk_gating_on(struct venus_hfi_device *device)
 	}
 	/*SYS Idle should be last message so mask any further interrupts
 	 * until clocks are enabled again.*/
-	venus_hfi_write_register(device,
+
+/*                                                                                   */
+	if(!venus_hfi_is_msg_pending(device)) {
+		venus_hfi_write_register(device,
 			VIDC_WRAPPER_INTR_MASK,
 			VIDC_WRAPPER_INTR_MASK_A2HVCODEC_BMSK | VIDC_WRAPPER_INTR_MASK_A2HCPU_BMSK, 0);
+	}
+/*                                                                                   */
 	venus_hfi_clk_disable(device);
 	if (!queue_delayed_work(device->venus_pm_workq, &venus_hfi_pm_work,
 			msecs_to_jiffies(msm_vidc_pwr_collapse_delay)))

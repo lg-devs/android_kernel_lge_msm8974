@@ -583,12 +583,14 @@ static int qpnp_lpg_change_table(struct pwm_device *pwm,
 		}
 	}
 
+#ifndef CONFIG_LEDS_PM8941_EMOTIONAL
 	/*
 	 * For the Keypad Backlight Lookup Table (KPDBL_LUT),
 	 * offset is lo_index.
 	 */
 	if (qpnp_check_gpled_lpg_channel(pwm->pwm_config.channel_id))
 		offset = lut->lo_index;
+#endif
 
 	/* Write with max allowable burst mode, each entry is of two bytes */
 	for (i = 0; i < list_len; i += burst_size) {

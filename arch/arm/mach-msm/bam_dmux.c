@@ -71,6 +71,9 @@ static int bam_adaptive_timer_enabled = 1;
 module_param_named(adaptive_timer_enabled,
 			bam_adaptive_timer_enabled,
 		   int, S_IRUGO | S_IWUSR | S_IWGRP);
+static int ul_wakeup_timeout = 10;
+module_param_named(ul_wakeup_response_timeout, ul_wakeup_timeout,
+		   int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 #if defined(DEBUG)
 static uint32_t bam_dmux_read_cnt;

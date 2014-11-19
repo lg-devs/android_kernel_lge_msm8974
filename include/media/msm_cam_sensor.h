@@ -93,6 +93,13 @@ enum msm_sensor_power_seq_gpio_t {
 	SENSOR_GPIO_VANA,
 	SENSOR_GPIO_VDIG,
 	SENSOR_GPIO_VAF,
+/*             
+                                            
+                                                                        
+ */
+	SENSOR_GPIO_OIS_LDO_EN,
+	SENSOR_GPIO_OIS_RESET,
+/*                                                         */
 	SENSOR_GPIO_MAX,
 };
 
@@ -113,6 +120,7 @@ enum msm_sensor_resolution_t {
 	MSM_SENSOR_RES_5,
 	MSM_SENSOR_RES_6,
 	MSM_SENSOR_RES_7,
+	MSM_SENSOR_RES_8,	 //                                                                       
 	MSM_SENSOR_INVALID_RES,
 };
 
@@ -323,6 +331,30 @@ struct msm_sensor_info_t {
 	int32_t     subdev_id[SUB_MODULE_MAX];
 };
 
+/*                                                          */
+struct msm_sensor_ois_info_t{
+	char ois_provider[MAX_SENSOR_NAME];
+	int16_t gyro[2];
+	int16_t target[2];
+	int16_t hall[2];
+	uint8_t is_stable;
+};
+
+enum ois_mode_t {
+	OIS_MODE_PREVIEW_CAPTURE,
+	OIS_MODE_VIDEO,
+	OIS_MODE_CAPTURE,
+	OIS_MODE_CENTERING_ONLY,
+	OIS_MODE_CENTERING_OFF
+};
+
+enum ois_ver_t {
+	OIS_VER_RELEASE,
+	OIS_VER_CALIBRATION,
+	OIS_VER_DEBUG
+};
+
+/*                                                          */
 struct camera_vreg_t {
 	const char *reg_name;
 	enum camera_vreg_type type;
@@ -349,6 +381,7 @@ struct msm_sensor_init_params {
 	enum camb_position_t position;
 	/* sensor mount angle */
 	uint32_t            sensor_mount_angle;
+	int					ois_supported; /*                                                       */
 };
 
 struct sensorb_cfg_data {
@@ -356,6 +389,7 @@ struct sensorb_cfg_data {
 	union {
 		struct msm_sensor_info_t      sensor_info;
 		struct msm_sensor_init_params sensor_init_params;
+		struct msm_sensor_ois_info_t	ois_info;	/*                                                        */
 		void                         *setting;
 	} cfg;
 };
@@ -434,6 +468,11 @@ enum msm_sensor_cfg_type_t {
 	CFG_SET_WHITE_BALANCE,
 	CFG_SET_AUTOFOCUS,
 	CFG_CANCEL_AUTOFOCUS,
+	CFG_OIS_ON,					/*                                                  */
+	CFG_OIS_OFF,				/*                                                  */
+	CFG_GET_OIS_INFO,			/*                                                        */
+	CFG_SET_OIS_MODE,   		/*                                                        */
+	CFG_OIS_MOVE_LENS			/*                                                        */
 };
 
 enum msm_actuator_cfg_type_t {
@@ -563,10 +602,24 @@ struct msm_actuator_reg_params_t {
 
 enum msm_camera_led_config_t {
 	MSM_CAMERA_LED_OFF,
-	MSM_CAMERA_LED_LOW,
+	MSM_CAMERA_LED_LOW,		//For pre-Flash, Snapshot
 	MSM_CAMERA_LED_HIGH,
 	MSM_CAMERA_LED_INIT,
 	MSM_CAMERA_LED_RELEASE,
+/*                                                              */
+	MSM_CAMERA_LED_HIGH_20P,
+	MSM_CAMERA_LED_HIGH_40P,
+	MSM_CAMERA_LED_HIGH_60P,	
+	MSM_CAMERA_LED_HIGH_80P,	
+/*                                                              */
+
+#if 1 //                                              
+/*           
+                                    
+                                
+ */
+	MSM_CAMERA_LED_TORCH,	//For torch, Video recording
+#endif
 };
 
 struct msm_camera_led_cfg_t {

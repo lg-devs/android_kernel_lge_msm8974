@@ -15,6 +15,9 @@
 
 #include <linux/clk.h>
 #include <linux/io.h>
+/*                                                                                                    */
+#include <linux/wakelock.h>
+/*                                                                                                    */
 #include <media/v4l2-subdev.h>
 #include <media/msmb_ispif.h>
 #include "msm_sd.h"
@@ -60,5 +63,8 @@ struct ispif_device {
 	struct clk *ahb_clk;
 	struct completion reset_complete[VFE_MAX];
 	uint32_t hw_num_isps;
+/*                                                                                                    */
+	struct wake_lock        camera_wake_lock;
+/*                                                                                                    */
 };
 #endif

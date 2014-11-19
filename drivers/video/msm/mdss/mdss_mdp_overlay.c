@@ -34,10 +34,28 @@
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
 
+#ifdef CONFIG_MACH_LGE
+#include <linux/poison.h>
+#include <mach/board_lge.h>
+#endif
 #define VSYNC_PERIOD 16
 #define BORDERFILL_NDX	0x0BF000BF
 #define CHECK_BOUNDS(offset, size, max_size) \
 	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
+#ifdef CONFIG_MACH_LGE
+#define QMC_PATCH
+#endif
+#ifdef CONFIG_OLED_SUPPORT
+/*           
+                                                         
+                                                                   
+                                 
+ */
+#define QMC_POWERONOFF_PATCH
+#endif
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)
+#define QMC_POWERONOFF_PATCH
+#endif 
 
 #define PP_CLK_CFG_OFF 0
 #define PP_CLK_CFG_ON 1
@@ -151,6 +169,9 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 			pr_err("Invalid decimation factors horz=%d vert=%d\n",
 					req->horz_deci, req->vert_deci);
 			return -EINVAL;
+		} else if (req->flags & MDP_BWC_EN) {
+			pr_err("Decimation can't be enabled with BWC\n");
+			return -EINVAL;
 		}
 	}
 
@@ -205,7 +226,6 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 			       src_h, req->dst_rect.h, req->vert_deci);
 			return -EINVAL;
 		}
-
 		if (req->flags & MDP_BWC_EN) {
 			if ((req->src.width != req->src_rect.w) ||
 			    (req->src.height != req->src_rect.h)) {
@@ -256,6 +276,21 @@ static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe)
 	struct mdss_mdp_perf_params perf;
 	int rc;
 
+#ifdef CONFIG_OLED_SUPPORT
+	/*                 
+                                   
+                                                                        
+                                    
+  */
+	if (unlikely(mdata->has_decimation && pipe->src_fmt->is_yuv &&
+		((pipe->src.w > 1280) && ((pipe->dst.w << 2) < pipe->src.w)))) {
+
+		if ((pipe->vert_deci > 0 && pipe->vert_deci < MAX_DECIMATION) &&
+			(pipe->horz_deci > 0 && pipe->horz_deci < MAX_DECIMATION))
+			pipe->vert_deci++;
+	}
+	/*                */
+#endif
 	for (;;) {
 		rc = mdss_mdp_perf_calc_pipe(pipe, &perf);
 
@@ -267,7 +302,8 @@ static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe)
 		 * requirement by applying vertical decimation and reduce
 		 * mdp clock requirement
 		 */
-		if (mdata->has_decimation && (pipe->vert_deci < MAX_DECIMATION))
+		if (mdata->has_decimation && (pipe->vert_deci < MAX_DECIMATION)
+			&& !pipe->bwc_mode)
 			pipe->vert_deci++;
 		else
 			return -EPERM;
@@ -282,54 +318,28 @@ static int __mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 	int rc;
 
 	src = pipe->src.w >> pipe->horz_deci;
-
-	if (pipe->scale.enable_pxl_ext)
-		return 0;
-	memset(&pipe->scale, 0, sizeof(struct mdp_scale_data));
-	rc = mdss_mdp_calc_phase_step(src, pipe->dst.w,
-			&pipe->scale.phase_step_x[0]);
-	if (rc) {
+	rc = mdss_mdp_calc_phase_step(src, pipe->dst.w, &pipe->phase_step_x);
+    if (rc == -EOVERFLOW) { 
+	/* overflow on horizontal direction is acceptable */ 
+		return 0; 
+	} else if (rc) { 
 		pr_err("Horizontal scaling calculation failed=%d! %d->%d\n",
 				rc, src, pipe->dst.w);
 		return rc;
 	}
 
 	src = pipe->src.h >> pipe->vert_deci;
-	rc = mdss_mdp_calc_phase_step(src, pipe->dst.h,
-			&pipe->scale.phase_step_y[0]);
-	if (rc) {
+	rc = mdss_mdp_calc_phase_step(src, pipe->dst.h, &pipe->phase_step_y);
+	if ((rc == -EOVERFLOW) && (pipe->type == MDSS_MDP_PIPE_TYPE_VIG)) { 
+	/* overflow on Qseed2 scaler is acceptable */ 
+		return 0; 
+	} else if (rc) { 
 		pr_err("Vertical scaling calculation failed=%d! %d->%d\n",
 				rc, src, pipe->dst.h);
 		return rc;
 	}
-	pipe->scale.init_phase_x[0] = (pipe->scale.phase_step_x[0] -
-					(1 << PHASE_STEP_SHIFT)) / 2;
-	pipe->scale.init_phase_y[0] = (pipe->scale.phase_step_y[0] -
-					(1 << PHASE_STEP_SHIFT)) / 2;
+
 	return 0;
-}
-
-static inline void __mdss_mdp_overlay_set_chroma_sample(
-	struct mdss_mdp_pipe *pipe)
-{
-	pipe->chroma_sample_v = pipe->chroma_sample_h = 0;
-
-	switch (pipe->src_fmt->chroma_sample) {
-	case MDSS_MDP_CHROMA_H1V2:
-		pipe->chroma_sample_v = 1;
-		break;
-	case MDSS_MDP_CHROMA_H2V1:
-		pipe->chroma_sample_h = 1;
-		break;
-	case MDSS_MDP_CHROMA_420:
-		pipe->chroma_sample_v = 1;
-		pipe->chroma_sample_h = 1;
-		break;
-	}
-	if (pipe->horz_deci)
-		pipe->chroma_sample_h = 0;
-	if (pipe->vert_deci)
-		pipe->chroma_sample_v = 0;
 }
 
 static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
@@ -474,10 +484,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->dst.h = req->dst_rect.h;
 	pipe->horz_deci = req->horz_deci;
 	pipe->vert_deci = req->vert_deci;
-
-	memcpy(&pipe->scale, &req->scale, sizeof(struct mdp_scale_data));
 	pipe->src_fmt = fmt;
-	__mdss_mdp_overlay_set_chroma_sample(pipe);
 
 	pipe->mixer_stage = req->z_order;
 	pipe->is_fg = req->is_fg;
@@ -493,8 +500,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		pr_debug("Unintended blend_op %d on layer with no alpha plane\n",
 			pipe->blend_op);
 
-	if (fmt->is_yuv && !(pipe->flags & MDP_SOURCE_ROTATED_90) &&
-			!pipe->scale.enable_pxl_ext) {
+	if (fmt->is_yuv && !(pipe->flags & MDP_SOURCE_ROTATED_90)) {
 		pipe->overfetch_disable = OVERFETCH_DISABLE_BOTTOM;
 
 		if (!(pipe->flags & MDSS_MDP_DUAL_PIPE) ||
@@ -560,7 +566,7 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	if ((pipe->flags & MDP_DEINTERLACE) && !pipe->scale.enable_pxl_ext) {
+	if (pipe->flags & MDP_DEINTERLACE) {
 		if (pipe->flags & MDP_SOURCE_ROTATED_90) {
 			pipe->src.x = DIV_ROUND_UP(pipe->src.x, 2);
 			pipe->src.x &= ~1;
@@ -586,12 +592,6 @@ static int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	if ((mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK) &&
 		!mdp5_data->mdata->has_wfd_blk)
 		mdss_mdp_smp_release(pipe);
-
-	/*
-	 * Clear previous SMP reservations and reserve according to the
-	 * latest configuration
-	 */
-	mdss_mdp_smp_unreserve(pipe);
 
 	ret = mdss_mdp_smp_reserve(pipe);
 	if (ret) {
@@ -831,14 +831,15 @@ static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 	if (ctl->power_on) {
 		if (!mdp5_data->mdata->batfet)
 			mdss_mdp_batfet_ctrl(mdp5_data->mdata, true);
-		if (!is_mdss_iommu_attached() &&
-					!mfd->panel_info->cont_splash_enabled)
-			mdss_iommu_attach(mdp5_data->mdata);
 		return 0;
 	}
 
+#ifdef CONFIG_MACH_LGE
+	if (mfd->index == 0)
+		pr_info("starting fb%d overlay\n", mfd->index);
+#else
 	pr_debug("starting fb%d overlay\n", mfd->index);
-
+#endif
 	rc = pm_runtime_get_sync(&mfd->pdev->dev);
 	if (IS_ERR_VALUE(rc)) {
 		pr_err("unable to resume with pm_runtime_get_sync rc=%d\n", rc);
@@ -952,13 +953,27 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	int ret = 0;
 	int sd_in_pipe = 0;
 
-	if (!is_mdss_iommu_attached() && !mfd->panel_info->cont_splash_enabled)
-		mdss_iommu_attach(mdp5_data->mdata);
 
 	if (ctl->shared_lock)
 		mutex_lock(ctl->shared_lock);
 
 	mutex_lock(&mdp5_data->ov_lock);
+#ifdef QMC_POWERONOFF_PATCH
+	if (!mdp5_data || !mdp5_data->ctl) {
+		pr_err("ctl not initialized\n");
+		mutex_unlock(&mdp5_data->ov_lock);
+		if (ctl->shared_lock) 
+			mutex_unlock(ctl->shared_lock); 
+		return -ENODEV;
+	}
+
+	if (!mdp5_data->ctl->power_on) {
+		mutex_unlock(&mdp5_data->ov_lock);
+		if (ctl->shared_lock) 
+			mutex_unlock(ctl->shared_lock); 
+		return 0;
+	}
+#endif
 	mutex_lock(&mfd->lock);
 
 	/*
@@ -988,6 +1003,17 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
 		struct mdss_mdp_data *buf;
+
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL)
+		/*           
+                                                                
+                                                 
+                                     
+   */
+		if (ctl->play_cnt == 0)
+			pipe->params_changed++;
+#endif
+
 		/*
 		 * When secure display is enabled, if there is a non secure
 		 * display pipe, skip that
@@ -1031,8 +1057,17 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		if (pipe->back_buf.num_planes) {
 			buf = &pipe->back_buf;
 		} else if (ctl->play_cnt == 0 && pipe->front_buf.num_planes) {
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL)
+			/*           
+                                                                 
+                                                  
+                                      
+    */
+			buf = &pipe->front_buf;
+#else
 			pipe->params_changed++;
 			buf = &pipe->front_buf;
+#endif
 		} else if (!pipe->params_changed) {
 			continue;
 		} else if (pipe->front_buf.num_planes) {
@@ -2410,15 +2445,30 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 	}
 
 	if (!mfd->panel_info->cont_splash_enabled &&
-		(mfd->panel_info->type != DTV_PANEL) &&
-		(mfd->panel_info->type != WRITEBACK_PANEL)) {
+			(mfd->panel_info->type != DTV_PANEL) &&
+			(mfd->panel_info->type != WRITEBACK_PANEL)) {
 		rc = mdss_mdp_overlay_start(mfd);
-		if (!IS_ERR_VALUE(rc))
+		if (!IS_ERR_VALUE(rc)) {
 			rc = mdss_mdp_overlay_kickoff(mfd, NULL);
+
+			if (mfd->panel_info->type == MIPI_CMD_PANEL)
+				mdss_mdp_display_wait4pingpong(mdp5_data->ctl);
+		}
 	} else {
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL)
+		if ((lge_get_boot_mode() == LGE_BOOT_MODE_MINIOS) &&
+				(mfd->panel_info->type == DTV_PANEL))
+			rc = mdss_mdp_overlay_start(mfd);
+		else {
+			rc = mdss_mdp_ctl_setup(mdp5_data->ctl);
+			if (rc)
+				return rc;
+		}
+#else
 		rc = mdss_mdp_ctl_setup(mdp5_data->ctl);
 		if (rc)
 			return rc;
+#endif
 	}
 
 	if (IS_ERR_VALUE(rc)) {
@@ -2434,6 +2484,7 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_mdp_mixer *mixer;
 	int need_cleanup;
+
 
 	if (!mfd)
 		return -ENODEV;
@@ -2481,7 +2532,6 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 			mdss_mdp_ctl_destroy(mdp5_data->ctl);
 			mdp5_data->ctl = NULL;
 		}
-
 		if (atomic_dec_return(&ov_active_panels) == 0)
 			mdss_mdp_rotator_release_all();
 
@@ -2743,6 +2793,9 @@ static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd)
 	int rc = 0;
 	struct platform_device *pdev = mfd->pdev;
 	struct mdss_overlay_private *mdp5_mdata = mfd_to_mdp5_data(mfd);
+#ifdef CONFIG_MACH_LGE
+	struct mdss_panel_data *pdata;
+#endif
 
 	mdp5_mdata->mixer_swap = of_property_read_bool(pdev->dev.of_node,
 					   "qcom,mdss-mixer-swap");
@@ -2751,9 +2804,19 @@ static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd)
 			pdev->name);
 	}
 
+#ifdef CONFIG_MACH_LGE
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+#endif
 	rc = mdss_mdp_overlay_splash_parse_dt(mfd);
 	if (rc && mfd->panel_info->cont_splash_enabled) {
-		pr_err("No rsvd mem found in DT for splash screen\n");
+#ifdef CONFIG_MACH_LGE
+		if (pdata->panel_info.type == MIPI_CMD_PANEL) {
+			pr_debug("rsvd mem for splash screen dont need for command mode\n");
+			rc = 0;
+		} else
+#endif
+			pr_err("No rsvd mem found in DT for splash screen\n");
+
 	} else {
 		pr_debug("Mem reservation not reqd if cont splash diasbled\n");
 		rc = 0;

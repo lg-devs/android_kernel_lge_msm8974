@@ -29,6 +29,20 @@
 
 #define VSYNC_PERIOD 17
 
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)
+extern int is_fboot;
+#endif
+
+#ifdef CONFIG_OLED_SUPPORT
+#define LGE_HRTIMER_OLED_PATCH 1
+#include <linux/time.h>		/* for using do_gettimeofday */
+#endif
+
+#ifdef LGE_HRTIMER_OLED_PATCH
+static struct hrtimer oled_hrtimer;
+static DECLARE_COMPLETION(oled_hrtimer_comp);
+#endif
+
 static struct mdss_dsi_ctrl_pdata *left_ctrl_pdata;
 
 static struct mdss_dsi_ctrl_pdata *ctrl_list[DSI_CTRL_MAX];
@@ -97,6 +111,9 @@ void mdss_dsi_ctrl_init(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	pr_debug("%s: ndx=%d base=%p\n", __func__, ctrl->ndx, ctrl->ctrl_base);
 
+#ifdef LGE_HRTIMER_OLED_PATCH
+	hrtimer_init(&oled_hrtimer, HRTIMER_BASE_MONOTONIC, HRTIMER_MODE_REL_PINNED);
+#endif
 	init_completion(&ctrl->dma_comp);
 	init_completion(&ctrl->mdp_comp);
 	init_completion(&ctrl->video_comp);
@@ -127,6 +144,7 @@ void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 	}
 
 	mdss_dsi_clk_ctrl(ctrl, enable);
+
 }
 
 void mdss_dsi_pll_relock(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -661,6 +679,12 @@ int mdss_dsi_cmd_reg_tx(u32 data,
 	return 4;
 }
 
+#ifdef LGE_HRTIMER_OLED_PATCH
+
+static void oled_hrtimer_delay(int delay_in_ms);
+
+#endif
+
 static int mdss_dsi_wait4video_eng_busy(struct mdss_dsi_ctrl_pdata *ctrl);
 
 static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
@@ -676,6 +700,15 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	struct dsi_cmd_desc *cm;
 	struct dsi_ctrl_hdr *dchdr;
 	int len, wait, tot = 0;
+
+#ifdef CONFIG_OLED_SUPPORT
+#ifdef LGE_HRTIMER_OLED_PATCH
+#else
+	struct timeval tv_start, tv_end;
+	long tv_diff;
+	int delay_count;
+#endif
+#endif
 
 	tp = &ctrl->tx_buf;
 	mdss_dsi_buf_init(tp);
@@ -704,9 +737,36 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 					__func__,  cmds->payload[0]);
 				return -EINVAL;
 			}
+#ifdef CONFIG_OLED_SUPPORT
+#ifdef LGE_HRTIMER_OLED_PATCH
+			if (!wait || dchdr->wait > VSYNC_PERIOD) {
+				printk("[Zee][OLED] mipi_dsi_tx(0x%X) start (target delay=%dms)\n", cm->payload[0], (int)dchdr->wait);
 
+				if (dchdr->wait > 5)
+					oled_hrtimer_delay(dchdr->wait);
+				else
+					mdelay(dchdr->wait);
+
+				printk("[Zee][OLED] mipi_dsi_tx(0x%X) finish (target delay=%dms)\n", cm->payload[0], (int)dchdr->wait);
+			}
+#else
+			if (!wait || dchdr->wait > VSYNC_PERIOD) {
+				delay_count = 0;
+				do_gettimeofday(&tv_start);
+				do {
+					mdelay(1);
+					do_gettimeofday(&tv_end);
+					tv_diff = ((tv_end.tv_sec - tv_start.tv_sec) * 1000000) /* sec */
+						+ (tv_end.tv_usec - tv_start.tv_usec);			/* usec */
+					delay_count++;
+				} while (dchdr->wait * 1000 > tv_diff);
+				pr_info("%s: 0x%X needs %d(ms) delay and real delay is %ld(us), delay_count(%d).\n", __func__, cm->payload[0], (int)dchdr->wait, tv_diff, delay_count);
+			}
+#endif
+#else
 			if (!wait || dchdr->wait > VSYNC_PERIOD)
 				usleep(dchdr->wait * 1000);
+#endif
 
 			mdss_dsi_buf_init(tp);
 			len = 0;
@@ -715,6 +775,26 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	}
 	return tot;
 }
+
+#ifdef LGE_HRTIMER_OLED_PATCH
+static enum hrtimer_restart oled_hrtimer_callback(struct hrtimer *timer)
+{
+	complete(&oled_hrtimer_comp);
+	return HRTIMER_NORESTART;
+}
+
+static void oled_hrtimer_delay(int delay_in_ms)
+{
+	ktime_t ktime;
+	ktime = ktime_set(0, delay_in_ms * NSEC_PER_MSEC);
+	INIT_COMPLETION(oled_hrtimer_comp);
+
+	oled_hrtimer.function = oled_hrtimer_callback;
+	hrtimer_start(&oled_hrtimer, ktime, HRTIMER_MODE_REL);
+	wait_for_completion_timeout(&oled_hrtimer_comp, msecs_to_jiffies(delay_in_ms + (int)(delay_in_ms / 5)));
+	hrtimer_cancel(&oled_hrtimer);
+}
+#endif
 
 /*
  * mdss_dsi_cmds_tx:
@@ -780,6 +860,69 @@ int mdss_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 					dsi_ctrl); /* restore */
 	return cnt;
 }
+
+#ifdef CONFIG_LGE_ESD_CHECK
+/*             
+                           
+                                
+*/
+void mdss_dsi_cmds_mode1(struct mdss_panel_data *pdata)
+{
+	u32 dsi_ctrl, ctrl;
+	int video_mode;
+
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+
+	/* turn on cmd mode
+	* for video mode, do not send cmds more than
+	* one pixel line, since it only transmit it
+	* during BLLP.
+	*/
+
+	dsi_ctrl = MIPI_INP((ctrl_pdata->ctrl_base) + 0x0004);
+	video_mode = dsi_ctrl & 0x02; /* VIDEO_MODE_EN */
+	if (video_mode) {
+		ctrl = dsi_ctrl | 0x04; /* CMD_MODE_EN */
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004, ctrl);
+	}
+
+}
+void mdss_dsi_cmds_mode2(struct mdss_panel_data *pdata)
+{
+	u32 dsi_ctrl;
+	int video_mode;
+
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+
+	dsi_ctrl = MIPI_INP((ctrl_pdata->ctrl_base) + 0x0004);
+
+	/* turn on cmd mode
+	* for video mode, do not send cmds more than
+	* one pixel line, since it only transmit it
+	* during BLLP.
+	*/
+	video_mode = dsi_ctrl & 0x02; /* VIDEO_MODE_EN */
+	if (video_mode)
+		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004,
+						dsi_ctrl); /* restore */
+
+}
+#endif
 
 /* MIPI_DSI_MRPS, Maximum Return Packet Size */
 static char max_pktsize[2] = {0x00, 0x00}; /* LSB tx first, 10 bytes */
@@ -1135,6 +1278,9 @@ void mdss_dsi_cmd_mdp_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	unsigned long flags;
 	int need_wait = 0;
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)
+	int ret;
+#endif
 
 	pr_debug("%s: start pid=%d\n",
 				__func__, current->pid);
@@ -1147,9 +1293,17 @@ void mdss_dsi_cmd_mdp_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 		/* wait until DMA finishes the current job */
 		pr_debug("%s: pending pid=%d\n",
 				__func__, current->pid);
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)
+		ret = wait_for_completion_timeout(&ctrl->mdp_comp,
+					msecs_to_jiffies(DMA_TX_TIMEOUT));
+
+		if (!is_fboot && ret <= 0)
+			WARN(1, "mdp busy timeout\n");
+#else
 		if (!wait_for_completion_timeout(&ctrl->mdp_comp,
 					msecs_to_jiffies(DMA_TX_TIMEOUT)))
 			pr_err("%s: timeout error\n", __func__);
+#endif
 	}
 	pr_debug("%s: done pid=%d\n",
 				__func__, current->pid);
