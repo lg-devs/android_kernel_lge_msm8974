@@ -47,7 +47,19 @@ obj-$(CONFIG_BATTERY_MSM)       += msm_battery.o
 obj-$(CONFIG_BATTERY_MSM8X60)   += msm_charger.o
 obj-$(CONFIG_PM8058_CHARGER)    += pmic8058-charger.o
 obj-$(CONFIG_ISL9519_CHARGER)   += isl9519q.o
+ifdef CONFIG_LGE_PM
+ifdef CONFIG_MACH_MSM8974_Z_KR
+obj-$(CONFIG_SMB349_CHARGER)   += smb349_charger_z_revA.o
+else ifdef CONFIG_MACH_MSM8974_Z_US
+obj-$(CONFIG_SMB349_CHARGER)   += smb349_charger_z_revA.o
+else ifdef CONFIG_MACH_MSM8974_Z_KDDI
+obj-$(CONFIG_SMB349_CHARGER)   += smb349_charger_z_revA.o
+else
+obj-$(CONFIG_SMB349_CHARGER)   += smb349_charger.o
+endif
+else
 obj-$(CONFIG_SMB349_CHARGER)   += smb349.o
+endif
 obj-$(CONFIG_SMB350_CHARGER)   += smb350_charger.o
 obj-$(CONFIG_PM8058_FIX_USB)    += pm8058_usb_fix.o
 obj-$(CONFIG_BATTERY_QCIBAT)    += qci_battery.o
