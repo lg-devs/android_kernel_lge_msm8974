@@ -180,7 +180,7 @@
 		qcom,lpm-level@4 {
 			reg = <0x4>;
 			qcom,mode = "pc";
-			qcom,l2 = "l2_cache_pc";
+			qcom,l2 = "l2_cache_gdhs"; /* LGE Temporary: GDHS */
 			qcom,latency-us = <30000>;
 			qcom,ss-power = <110>;
 			qcom,energy-overhead = <1250300>;
@@ -310,7 +310,6 @@
 		reg = <0xfe805664 0x40>;
 		qcom,pc-mode = "tz_l2_int";
 		qcom,use-sync-timer;
-		qcom,cpus-as-clocks;
 	};
 
 	qcom,cpu-sleep-status@f9088008 {
