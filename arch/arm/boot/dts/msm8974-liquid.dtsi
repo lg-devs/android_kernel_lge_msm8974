@@ -464,6 +464,10 @@
 	qcom,otg-capability;
 };
 
+&pm8941_mvs1 {
+	parent-supply = <&ext_5v>;
+};
+
 &pm8941_mvs2 {
 	parent-supply = <&ext_5v>;
 };
@@ -811,7 +815,6 @@
 
 &pm8941_chg {
 	status = "ok";
-	otg-parent-supply = <&ext_5v>;
 
 	qcom,charging-disabled;
 
