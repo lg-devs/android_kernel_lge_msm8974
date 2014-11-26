@@ -36,6 +36,11 @@
 #include <asm/unaligned.h>
 #include "ecryptfs_kernel.h"
 
+#if defined (FEATURE_SDCARD_MEDIAEXN_SYSTEMCALL_ENCRYPTION)
+#include <linux/unistd.h>
+#include "../LGSDEncManager.h"
+#endif //FEATURE_SDCARD_MEDIAEXN_SYSTEMCALL_ENCRYPTION
+
 static struct dentry *lock_parent(struct dentry *dentry)
 {
 	struct dentry *dir;
@@ -212,6 +217,14 @@ static int ecryptfs_initialize_file(struct dentry *ecryptfs_dentry,
 		crypt_stat->flags &= ~(ECRYPTFS_ENCRYPTED);
 		goto out;
 	}
+#if defined (FEATURE_SDCARD_MEDIAEXN_SYSTEMCALL_ENCRYPTION)
+	if (getMediaProperty() == 1){
+		if(ecryptfs_mediaFileSearch(ecryptfs_dentry->d_name.name)){
+			crypt_stat->flags &= ~(ECRYPTFS_ENCRYPTED);
+			goto out;
+		}
+	}
+#endif //FEATURE_SDCARD_MEDIAEXN_SYSTEMCALL_ENCRYPTION
 	ecryptfs_printk(KERN_DEBUG, "Initializing crypto context\n");
 	rc = ecryptfs_new_file_context(ecryptfs_inode);
 	if (rc) {
