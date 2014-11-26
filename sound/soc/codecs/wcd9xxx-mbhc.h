@@ -243,6 +243,9 @@ struct wcd9xxx_mbhc_config {
 	/* swap_gnd_mic returns true if extern GND/MIC swap switch toggled */
 	bool (*swap_gnd_mic) (struct snd_soc_codec *);
 	unsigned long cs_enable_flags;
+#ifdef CONFIG_MACH_LGE
+	int debounce_time_us;
+#endif
 	bool use_int_rbias;
 	bool do_recalibration;
 	bool use_vddio_meas;
