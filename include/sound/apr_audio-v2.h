@@ -643,6 +643,7 @@ struct adm_cmd_connect_afe_port_v5 {
 #define RSVD_2 9
 #define RSVD_3 10
 #define DIGI_MIC_TX 11
+#define GLOBAL_CFG 12
 #define VOICE2_PLAYBACK_TX 0x8002
 #define VOICE_RECORD_RX 0x8003
 #define VOICE_RECORD_TX 0x8004
@@ -4697,25 +4698,6 @@ struct asm_stream_cmd_open_write_compressed {
  * IEC 61937 packetization is not performed by the aDSP.
  */
 
-} __packed;
-
-
-/*
-    Indicates the number of samples per channel to be removed from the
-    beginning of the stream.
-*/
-#define ASM_DATA_CMD_REMOVE_INITIAL_SILENCE 0x00010D67
-/*
-    Indicates the number of samples per channel to be removed from
-    the end of the stream.
-*/
-#define ASM_DATA_CMD_REMOVE_TRAILING_SILENCE 0x00010D68
-struct asm_data_cmd_remove_silence {
-	struct apr_hdr hdr;
-	u32	num_samples_to_remove;
-	/**< Number of samples per channel to be removed.
-
-	   @values 0 to (2@sscr{32}-1) */
 } __packed;
 
 #define ASM_STREAM_CMD_OPEN_READ_COMPRESSED                        0x00010D95
