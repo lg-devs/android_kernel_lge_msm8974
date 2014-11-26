@@ -19,6 +19,8 @@ else
 obj-y +=	no-block.o
 endif
 
+obj-y += LGSDEncManager.o
+
 obj-$(CONFIG_PROC_FS) += proc_namespace.o
 
 obj-$(CONFIG_BLK_DEV_INTEGRITY) += bio-integrity.o
