@@ -27,9 +27,15 @@ int msm_sensor_get_dt_actuator_data(struct device_node *of_node,
 int msm_sensor_get_dt_csi_data(struct device_node *of_node,
 	struct msm_camera_csi_lane_params **csi_lane_params);
 
+#ifdef QULCOMM_ORIGINAL
 int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 	struct camera_vreg_t *cam_vreg, int num_vreg,
 	struct msm_camera_power_ctrl_t *power_info);
+#else
+int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
+	struct msm_camera_power_ctrl_t *power_info,
+	uint16_t *power_setting_size);
+#endif
 
 int msm_camera_get_dt_gpio_req_tbl(struct device_node *of_node,
 	struct msm_camera_gpio_conf *gconf, uint16_t *gpio_array,

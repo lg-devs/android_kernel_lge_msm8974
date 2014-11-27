@@ -20,12 +20,24 @@
 #include <mach/rpm-regulator-smd.h>
 #include <linux/regulator/consumer.h>
 
-/*#define CONFIG_MSMB_CAMERA_DEBUG*/
+#if defined(CONFIG_LG_OIS)
+#include "msm_ois.h"
+#endif
+
+#define CONFIG_MSMB_CAMERA_DEBUG
 #undef CDBG
 #ifdef CONFIG_MSMB_CAMERA_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
 #else
 #define CDBG(fmt, args...) do { } while (0)
+#endif
+
+#if 0   //Fix me to enable IEF_SWITCH
+#if defined(CONFIG_MACH_LGE) && !(defined(CONFIG_MACH_MSM8974_Z_KR) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI))
+#define IEF_SWITCH
+extern int mdss_dsi_panel_ief_on(void);
+extern int mdss_dsi_panel_ief_off(void);
+#endif
 #endif
 
 static int32_t msm_camera_get_power_settimgs_from_sensor_lib(
@@ -94,6 +106,42 @@ static int32_t msm_camera_get_power_settimgs_from_sensor_lib(
 		}
 	}
 
+#if defined(CONFIG_MACH_LGE)
+	rc = of_property_read_u32(of_node, "qcom,gpio-ois-ldo", &val);
+	if (!rc) {
+		if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-ois-ldo invalid %d\n",
+				__func__, __LINE__, val);
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_OIS_LDO_EN] =
+			gpio_array[val];
+		CDBG("%s qcom,gpio-ois-ldo %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_OIS_LDO_EN]);
+	} else if (rc != -EINVAL) {
+		pr_err("%s:%d read qcom,gpio-ois-ldo failed rc %d\n",
+			__func__, __LINE__, rc);
+		goto ERROR;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,gpio-ois-reset", &val);
+	if (!rc) {
+		if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-ois-reset invalid %d\n",
+				__func__, __LINE__, val);
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_OIS_RESET] =
+			gpio_array[val];
+		CDBG("%s qcom,gpio-ois-reset %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_OIS_RESET]);
+	} else if (rc != -EINVAL) {
+		pr_err("%s:%d read qcom,gpio-ois-reset failed rc %d\n",
+			__func__, __LINE__, rc);
+		goto ERROR;
+	}
+
+#endif
 	return 0;
 FREE_UP:
 	kfree(power_info->power_setting);
@@ -166,6 +214,14 @@ static int32_t msm_sensor_get_dt_data(struct device_node *of_node,
 		&sensordata->sensor_info->position);
 	CDBG("%s qcom,sensor-position %d, rc %d\n", __func__,
 		sensordata->sensor_info->position, rc);
+
+	if (of_property_read_bool(of_node, "qcom,gpio-ois-ldo") == true) {
+		sensordata->sensor_init_params->ois_supported = true;
+	}
+	else {
+		sensordata->sensor_init_params->ois_supported = false;
+	}
+
 	if (rc < 0) {
 		pr_err("%s Default sensor position %d\n", __func__, __LINE__);
 		sensordata->sensor_info->position = 0;
@@ -491,6 +547,7 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 		pr_err("%s: %s: read id failed\n", __func__, sensor_name);
 		return rc;
 	}
+#endif
 
 	CDBG("%s: read id: %x expected id %x:\n", __func__, chipid,
 		slave_info->sensor_id);
@@ -559,8 +616,8 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 	long rc = 0;
 	int i = 0;
 	mutex_lock(s_ctrl->msm_sensor_mutex);
-	CDBG("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
-		s_ctrl->sensordata->sensor_name, cdata->cfgtype);
+	//CDBG("%s:%d %s cfgtype = %d\n", __func__, __LINE__,
+	//	s_ctrl->sensordata->sensor_name, cdata->cfgtype);
 	switch (cdata->cfgtype) {
 	case CFG_GET_SENSOR_INFO:
 		memcpy(cdata->cfg.sensor_info.sensor_name,
@@ -1033,6 +1090,55 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 		}
 		break;
 	}
+/*                                                       */
+#if defined(CONFIG_LG_OIS)
+	case CFG_OIS_ON:{
+		enum ois_ver_t ver;
+		if (copy_from_user(&ver, (void *)cdata->cfg.setting,sizeof(enum ois_ver_t)))
+		{
+			ver = OIS_VER_RELEASE;
+		}
+		CDBG("%s: ois_on! %d \n", __func__, ver);
+		rc = msm_init_ois(ver);
+		break;
+	}
+
+	case CFG_OIS_OFF:{
+		CDBG("%s: ois_off!\n", __func__);
+		rc = msm_ois_off();
+		break;
+	}
+	case CFG_GET_OIS_INFO:{
+		struct msm_sensor_ois_info_t ois_stat;
+		CDBG("%s: CFG_GET_OIS_INFO!\n", __func__);
+		rc = msm_ois_info(&ois_stat);
+		memcpy(&cdata->cfg.ois_info,&ois_stat,sizeof(cdata->cfg.ois_info));
+		break;
+	}
+	case CFG_SET_OIS_MODE:{
+		enum ois_mode_t mode;
+		if (copy_from_user(&mode, (void *)cdata->cfg.setting,sizeof(enum ois_mode_t)))
+		{
+			mode = OIS_MODE_PREVIEW_CAPTURE;
+		}
+		CDBG("%s:CFG_SET_OIS_MODE  %d\n", __func__, mode);
+		rc = msm_ois_mode(mode);
+		break;
+	}
+	case CFG_OIS_MOVE_LENS:{
+		int16_t offset[2];
+		if (copy_from_user(&offset[0], (void *)cdata->cfg.setting,sizeof(int16_t)*2))
+		{
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		CDBG("%s:CFG_OIS_MOVE_LENS %x, %x\n", __func__, offset[0], offset[1]);
+		rc = msm_ois_move_lens(offset[0], offset[1]);
+		break;
+	}
+#endif
+/*                                                        */
 	default:
 		rc = -EFAULT;
 		break;
@@ -1125,6 +1231,11 @@ static struct msm_camera_i2c_fn_t msm_sensor_qup_func_tbl = {
 	.i2c_write_conf_tbl = msm_camera_qup_i2c_write_conf_tbl,
 };
 
+/*                                                 
+                                       */
+extern int32_t msm_eeprom_read(void);
+/*                                                 
+                                       */
 int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 {
 	int rc = 0;
@@ -1135,6 +1246,11 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 	unsigned long mount_pos;
 
 	s_ctrl->pdev = pdev;
+<<<<<<< HEAD
+=======
+	s_ctrl->dev = &pdev->dev;
+	pr_err("%s: ENTER\n", __func__);
+>>>>>>> a37d49c... msm: camera_v2: Camera changes for LG targets
 	CDBG("%s called data %p\n", __func__, data);
 	CDBG("%s pdev name %s\n", __func__, pdev->id_entry->name);
 	if (pdev->dev.of_node) {
@@ -1187,6 +1303,18 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 		return rc;
 	}
 
+/*                                                 
+                                                              */
+	if(strcmp(s_ctrl->sensordata->sensor_name, "imx135") == 0){
+		rc = msm_eeprom_read();
+		if(rc < 0)
+			pr_err("%s: read_eeprom_memory failed\n", __func__);	 //although fail, pass the this step.
+		else
+			pr_err("%s: read eeprom success\n", __func__);
+	}
+/*                                                 
+                                                              */
+
 	CDBG("%s %s probe succeeded\n", __func__,
 		s_ctrl->sensordata->sensor_name);
 	v4l2_subdev_init(&s_ctrl->msm_sd.sd,
@@ -1216,6 +1344,7 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 
 	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
 	CDBG("%s:%d\n", __func__, __LINE__);
+//	pr_err("%s: EXIT\n", __func__);
 	return rc;
 }
 

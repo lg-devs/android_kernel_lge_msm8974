@@ -139,6 +139,22 @@ static void msm_enqueue(struct msm_device_queue *queue,
 	spin_unlock_irqrestore(&queue->lock, flags);
 }
 
+#define msm_cpp_empty_list(queue, member) { \
+       unsigned long flags; \
+       struct msm_queue_cmd *qcmd = NULL; \
+       if (queue) { \
+               spin_lock_irqsave(&queue->lock, flags); \
+               while (!list_empty(&queue->list)) { \
+                       queue->len--; \
+                       qcmd = list_first_entry(&queue->list, \
+                               struct msm_queue_cmd, member); \
+                       list_del_init(&qcmd->member); \
+                       kfree(qcmd); \
+               } \
+               spin_unlock_irqrestore(&queue->lock, flags); \
+       } \
+}
+
 static struct msm_cam_clk_info cpp_clk_info[] = {
 	{"camss_top_ahb_clk", -1},
 	{"vfe_clk_src", 266670000},
@@ -845,7 +861,6 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 	cpp_dev->fs_cpp = NULL;
 	if (cpp_dev->stream_cnt > 0) {
 		pr_debug("error: stream count active\n");
-		msm_isp_update_bandwidth(ISP_CPP, 0, 0);
 	}
 	cpp_dev->stream_cnt = 0;
 	msm_isp_deinit_bandwidth_mgr(ISP_CPP);
@@ -983,6 +998,14 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	if (!cpp_dev) {
 		pr_err("failed: cpp_dev %p\n", cpp_dev);
 		return -EINVAL;
+	}
+
+	struct msm_device_queue *processing_q = NULL;
+	struct msm_device_queue *eventData_q = NULL;
+
+	if (!cpp_dev) {
+			pr_err("failed: cpp_dev %p\n", cpp_dev);
+			return -EINVAL;
 	}
 
 	mutex_lock(&cpp_dev->mutex);
@@ -1379,6 +1402,7 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	}
 	out_phyaddr1 = out_phyaddr0;
 
+#if 0 // QCT original
 	/* get buffer for duplicate output */
 	if (new_frame->duplicate_output) {
 		CPP_DBG("duplication enabled, dup_id=0x%x",
@@ -1414,6 +1438,45 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 		/* set duplicate enable bit */
 		cpp_frame_msg[5] |= 0x1;
 	}
+#else
+	/* get buffer for duplicate output */
+	if (new_frame->duplicate_output) {
+		CPP_DBG("duplication enabled, dup_id=0x%x",
+			new_frame->duplicate_identity);
+		memset(&new_frame->output_buffer_info[1], 0,
+			sizeof(struct msm_cpp_buffer_info_t));
+		memset(&buff_mgr_info_dup, 0, sizeof(struct msm_buf_mngr_info));
+		buff_mgr_info_dup.session_id =
+			((new_frame->duplicate_identity >> 16) & 0xFFFF);
+
+		buff_mgr_info_dup.stream_id =
+			(new_frame->duplicate_identity & 0xFFFF);
+
+		rc = msm_cpp_buffer_ops(cpp_dev, VIDIOC_MSM_BUF_MNGR_GET_BUF,
+			&buff_mgr_info_dup);
+		if (rc < 0) {
+			rc = -EAGAIN;
+			pr_err("error getting buffer rc:%d\n", rc);
+
+			msm_cpp_buffer_ops(cpp_dev,VIDIOC_MSM_BUF_MNGR_PUT_BUF,
+				 &buff_mgr_info);
+			goto ERROR2;
+		}
+		new_frame->output_buffer_info[1].index = buff_mgr_info_dup.index;
+		out_phyaddr1 = msm_cpp_fetch_buffer_info(cpp_dev,
+			&new_frame->output_buffer_info[1],
+			((new_frame->duplicate_identity >> 16) & 0xFFFF),
+			(new_frame->duplicate_identity & 0xFFFF),
+			&new_frame->output_buffer_info[1].fd);
+		if (!out_phyaddr1) {
+			pr_err("error gettting output physical address, new_frame->identity = 0x%x\n", (uint32_t)new_frame->identity);
+			rc = -EINVAL;
+			goto ERROR3;
+		}
+		/* set duplicate enable bit */
+		cpp_frame_msg[5] |= 0x1;
+	}
+#endif
 
 	num_stripes = ((cpp_frame_msg[12] >> 20) & 0x3FF) +
 		((cpp_frame_msg[12] >> 10) & 0x3FF) +
@@ -1673,6 +1736,13 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		kfree(k_stream_buff_info.buffer_info);
 		kfree(u_stream_buff_info);
 		if (cpp_dev->stream_cnt == 0) {
+            rc = msm_isp_update_bandwidth(ISP_CPP, 981345600, 1066680000);
+			if (rc < 0) {
+				pr_err("Bandwidth Set Failed!\n");
+				msm_isp_update_bandwidth(ISP_CPP, 0, 0);
+				mutex_unlock(&cpp_dev->mutex);
+				return -EINVAL;
+			}
 			cpp_dev->state = CPP_STATE_ACTIVE;
 			msm_cpp_clear_timer(cpp_dev);
 			msm_cpp_clean_queue(cpp_dev);

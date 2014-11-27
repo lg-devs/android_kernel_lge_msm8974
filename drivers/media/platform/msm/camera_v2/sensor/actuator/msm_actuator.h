@@ -14,6 +14,7 @@
 
 #include <linux/i2c.h>
 #include <linux/gpio.h>
+#include <linux/wakelock.h>
 #include <mach/camera2.h>
 #include <media/v4l2-subdev.h>
 #include <media/msmb_camera.h>
@@ -21,11 +22,15 @@
 #include "msm_camera_dt_util.h"
 #include "msm_camera_io_util.h"
 
-
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
 
 #define	MSM_ACTUATOT_MAX_VREGS (10)
+
+#define CAMERA_ENTER_MOMENT                      1
+#define CAMERA_ENTER_MOMENT_AFTER                2
+
+static int current_moment;
 
 struct msm_actuator_ctrl_t;
 
@@ -101,6 +106,7 @@ struct msm_actuator_ctrl_t {
 	uint32_t subdev_id;
 	struct msm_actuator_vreg vreg_cfg;
 	enum msm_actuator_state_t actuator_state;
+	struct wake_lock        camera_wake_lock;
 };
 
 #endif
