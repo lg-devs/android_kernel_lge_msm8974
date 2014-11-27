@@ -1310,7 +1310,7 @@ static int dsi_pll_enable_seq_8974(void)
 	}
 
 	if ((status & 0x01) != 1) {
-		pr_debug("%s: DSI PLL status=%x failed to Lock\n",
+		pr_err("%s: DSI PLL status=%x failed to Lock\n",
 		       __func__, status);
 		rc = -EINVAL;
 		goto error;

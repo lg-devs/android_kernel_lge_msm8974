@@ -28,6 +28,7 @@
 #include <mach/clk-provider.h>
 #include <mach/clock-generic.h>
 #include <mach/clk.h>
+#include <mach/cpufreq.h>
 #include "clock-krait.h"
 #include "clock.h"
 
@@ -394,11 +395,11 @@ static struct clk_lookup kpss_clocks_8974[] = {
 	CLK_LOOKUP("",	krait2_pri_mux_clk.c,		""),
 	CLK_LOOKUP("",	krait3_pri_mux_clk.c,		""),
 	CLK_LOOKUP("",	l2_pri_mux_clk.c,		""),
-	CLK_LOOKUP("l2_clk",	l2_clk.c,     "0.qcom,msm-cpufreq"),
-	CLK_LOOKUP("cpu0_clk",	krait0_clk.c, "0.qcom,msm-cpufreq"),
-	CLK_LOOKUP("cpu1_clk",	krait1_clk.c, "0.qcom,msm-cpufreq"),
-	CLK_LOOKUP("cpu2_clk",	krait2_clk.c, "0.qcom,msm-cpufreq"),
-	CLK_LOOKUP("cpu3_clk",	krait3_clk.c, "0.qcom,msm-cpufreq"),
+	CLK_LOOKUP("l2_clk",	l2_clk.c,     "msm-cpufreq"),
+	CLK_LOOKUP("cpu0_clk",	krait0_clk.c, "msm-cpufreq"),
+	CLK_LOOKUP("cpu1_clk",	krait1_clk.c, "msm-cpufreq"),
+	CLK_LOOKUP("cpu2_clk",	krait2_clk.c, "msm-cpufreq"),
+	CLK_LOOKUP("cpu3_clk",	krait3_clk.c, "msm-cpufreq"),
 	CLK_LOOKUP("l2_clk",	l2_clk.c,     "fe805664.qcom,pm-8x60"),
 	CLK_LOOKUP("cpu0_clk",	krait0_clk.c, "fe805664.qcom,pm-8x60"),
 	CLK_LOOKUP("cpu1_clk",	krait1_clk.c, "fe805664.qcom,pm-8x60"),
@@ -687,6 +688,8 @@ static int clock_krait_8974_driver_probe(struct platform_device *pdev)
 	get_krait_bin_format_b(pdev, &speed, &pvs, &pvs_ver);
 	snprintf(table_name, ARRAY_SIZE(table_name),
 			"qcom,speed%d-pvs%d-bin-v%d", speed, pvs, pvs_ver);
+
+	set_speed_pvs_bin(speed, pvs);
 
 	rows = parse_tbl(dev, table_name, 3,
 			(u32 **) &freq, (u32 **) &uv, (u32 **) &ua);

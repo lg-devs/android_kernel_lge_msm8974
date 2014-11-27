@@ -392,6 +392,10 @@ struct msm_panel_common_pdata {
 	int (*panel_num)(void);
 	void (*panel_config_gpio)(int);
 	int (*vga_switch)(int select_vga);
+#ifdef CONFIG_LGE_LCD_TUNING
+	int (*read_regset)(unsigned long);
+	int (*write_regset)(unsigned long);
+#endif
 	int *gpio_num;
 	u32 mdp_max_clk;
 #ifdef CONFIG_MSM_BUS_SCALING
