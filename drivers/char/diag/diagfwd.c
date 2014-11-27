@@ -58,6 +58,16 @@
 
 #define SMD_DRAIN_BUF_SIZE 4096
 
+//                                                                             
+#ifdef CONFIG_LGE_DM_DEV
+#include "lg_dm_dev_tty.h"
+#endif /*                 */
+//                                                                           
+
+#ifdef CONFIG_LGE_DM_APP
+#include "lg_dm_tty.h"
+#endif
+
 int diag_debug_buf_idx;
 unsigned char diag_debug_buf[1024];
 /* Number of entries in table of buffers */
@@ -795,6 +805,34 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 		(driver->logging_mode == MEMORY_DEVICE_MODE)) {
 			chk_logging_wakeup();
 	}
+
+     else if (smd_info->ch && !buf &&
+		(driver->logging_mode == DM_DEV_MODE)) {
+//			chk_logging_wakeup();
+/*                                                                                                 */
+	  	  lge_dm_dev_tty->set_logging = 1;
+		  wake_up_interruptible(&lge_dm_dev_tty->waitq);
+/*                                                                                                 */
+	}
+
+    else if (smd_info->ch && (driver->logging_mode == DM_APP_MODE)) {
+			chk_logging_wakeup();
+/*                                                                                                 */
+/*                                                                                                                                       */
+			if( buf != NULL && smd_info->in_busy_1 == 0){
+				smd_info->in_busy_1 = 1;
+			}
+			else if(buf != NULL && smd_info->in_busy_2 == 0){
+				smd_info->in_busy_2 = 1;
+			}
+/*                                                                                                                                       */
+
+
+		lge_dm_tty->set_logging = 1;
+		wake_up_interruptible(&lge_dm_tty->waitq);
+		/*                                                                                                 */
+	}
+
 	return;
 
 fail_return:
@@ -812,6 +850,9 @@ void diag_read_smd_work_fn(struct work_struct *work)
 	diag_smd_send_req(smd_info);
 }
 
+#ifdef CONFIG_MACH_LGE
+extern int wait_mts_read_complete(void);
+#endif
 int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 {
 	int i, err = 0, index;
@@ -940,6 +981,9 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 					   " USB: ", 16, 1, DUMP_PREFIX_ADDRESS,
 					    buf, write_ptr->length, 1);
 #endif /* DIAG DEBUG */
+#ifdef CONFIG_MACH_LGE
+			if (!wait_mts_read_complete())
+#endif
 			err = usb_diag_write(driver->legacy_ch, write_ptr);
 		}
 #ifdef CONFIG_DIAG_SDIO_PIPE
@@ -999,6 +1043,63 @@ int diag_device_write(void *buf, int data_type, struct diag_request *write_ptr)
 		APPEND_DEBUG('d');
 	}
 #endif /* DIAG OVER USB */
+
+#ifdef CONFIG_LGE_DM_APP
+	if (driver->logging_mode == DM_APP_MODE) {
+		/* only diag cmd #250 for supporting testmode tool */
+		if (data_type == APPS_DATA) {
+			driver->write_ptr_svc = (struct diag_request *)
+			(diagmem_alloc(driver, sizeof(struct diag_request),
+				 POOL_TYPE_WRITE_STRUCT));
+			if (driver->write_ptr_svc) {
+				driver->write_ptr_svc->length = driver->used;
+				driver->write_ptr_svc->buf = buf;
+
+				queue_work(lge_dm_tty->dm_wq,
+					&(lge_dm_tty->dm_usb_work));
+				flush_work(&(lge_dm_tty->dm_usb_work));
+
+			} else {
+				err = -1;
+			}
+
+			return err;
+
+		}
+
+		lge_dm_tty->set_logging = 1;
+		wake_up_interruptible(&lge_dm_tty->waitq);
+
+	}
+#endif
+
+//                                                                             
+#ifdef CONFIG_LGE_DM_DEV
+		if (driver->logging_mode == DM_DEV_MODE) {
+			/* only diag cmd #250 for supporting testmode tool */
+			if (data_type == APPS_DATA) {
+				driver->write_ptr_svc = (struct diag_request *)
+				(diagmem_alloc(driver, sizeof(struct diag_request),
+					 POOL_TYPE_WRITE_STRUCT));
+				if (driver->write_ptr_svc) {
+					driver->write_ptr_svc->length = driver->used;
+					driver->write_ptr_svc->buf = buf;
+					queue_work(lge_dm_dev_tty->dm_dev_wq,
+						&(lge_dm_dev_tty->dm_dev_usb_work));
+					flush_work(&(lge_dm_dev_tty->dm_dev_usb_work));
+	
+				} else {
+					err = -1;
+				}
+				return err;
+			}
+
+		lge_dm_dev_tty->set_logging = 1;
+		wake_up_interruptible(&lge_dm_dev_tty->waitq);
+
+	}
+#endif /*                 */
+//                                                                           
     return err;
 }
 
@@ -1181,6 +1282,51 @@ int diag_process_stm_cmd(unsigned char *buf)
 	return 0;
 }
 
+#if defined(CONFIG_LGE_DIAG_USB_ACCESS_LOCK) && (defined(CONFIG_MACH_MSM8974_G2_DCM) || defined(CONFIG_MACH_MSM8974_G2_KDDI) || defined(CONFIG_MACH_MSM8974_Z_KDDI))
+extern int get_diag_enable(void);
+#define	DIAG_ENABLE	1
+#define DIAG_DISABLE	0
+#define COMMAND_PORT_LOCK	    0xA1
+#define	COMMAND_WEB_DOWNLOAD	    0xEF
+#define	COMMAND_ASYNC_HDLC_FLAG	    0x7E
+#define COMMAND_DLOAD_RESET	    0x3A
+#define COMMAND_TEST_MODE		0xFA
+#define COMMAND_TEST_MODE_RESET	0x29
+
+int is_filtering_command(char *buf)
+{
+    int ret=0;
+    if(buf == NULL)
+	return -EFAULT;
+
+    switch(buf[0]) {
+	case COMMAND_PORT_LOCK :
+	    ret = 1;
+	    break;
+	case COMMAND_WEB_DOWNLOAD :
+	    ret = 1;
+	    break;
+	case COMMAND_ASYNC_HDLC_FLAG :
+	    ret = 1;
+	    break;
+	case COMMAND_DLOAD_RESET :
+	    ret = 1;
+	    break;
+	case COMMAND_TEST_MODE :
+		ret = 1;
+		break;
+	case COMMAND_TEST_MODE_RESET :
+		ret = 1;
+		break;
+	default:
+	    ret = 0;
+	    break;
+    }
+
+    return ret;
+}
+#endif
+
 int diag_apps_responds()
 {
 	if (chk_apps_only()) {
@@ -1204,6 +1350,12 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 	int status = 0;
 #if defined(CONFIG_DIAG_OVER_USB)
 	unsigned char *ptr;
+#endif
+
+#if defined(CONFIG_LGE_DIAG_USB_ACCESS_LOCK) && (defined(CONFIG_MACH_MSM8974_G2_DCM) || defined(CONFIG_MACH_MSM8974_G2_KDDI) || defined(CONFIG_MACH_MSM8974_Z_KDDI))
+	/*	buf[0] : 0xA1(161) is a diag command for mdm port lock */
+	if( (is_filtering_command(buf) != 1)  && (get_diag_enable() == DIAG_DISABLE) )
+		return 0;
 #endif
 
 	/* Check if the command is a supported mask command */
@@ -1834,6 +1986,41 @@ int diagfwd_connect(void)
 	int err;
 	int i;
 
+//                                                                             
+#ifdef CONFIG_LGE_DM_DEV
+	if (driver->logging_mode == DM_DEV_MODE) {
+		driver->usb_connected = 1;
+
+		err = usb_diag_alloc_req(driver->legacy_ch, N_LEGACY_WRITE,
+				N_LEGACY_READ);
+		if (err)
+			printk(KERN_ERR "diag: unable to alloc USB req on legacy ch");
+
+		/* Poll USB channel to check for data*/
+		queue_work(driver->diag_wq, &(driver->diag_read_work));
+
+		return 0;
+	}
+#endif /*                 */
+//                                                                           
+
+#ifdef CONFIG_LGE_DM_APP
+	if (driver->logging_mode == DM_APP_MODE) {
+		printk(KERN_DEBUG "diag: USB connected in DM_APP_MODE\n");
+		driver->usb_connected = 1;
+
+		err = usb_diag_alloc_req(driver->legacy_ch, N_LEGACY_WRITE,
+				N_LEGACY_READ);
+		if (err)
+			printk(KERN_ERR "diag: unable to alloc USB req on legacy ch");
+
+		/* Poll USB channel to check for data*/
+		queue_work(driver->diag_wq, &(driver->diag_read_work));
+
+		return 0;
+	}
+#endif
+
 	printk(KERN_DEBUG "diag: USB connected\n");
 	err = usb_diag_alloc_req(driver->legacy_ch,
 			(driver->supports_separate_cmdrsp ?
@@ -1867,6 +2054,29 @@ int diagfwd_connect(void)
 int diagfwd_disconnect(void)
 {
 	int i;
+
+//                                                                             
+#ifdef CONFIG_LGE_DM_DEV
+	if (driver->logging_mode == DM_DEV_MODE) {
+		driver->usb_connected = 0;
+
+		usb_diag_free_req(driver->legacy_ch);
+
+		return 0;
+	}
+#endif /*                 */
+//                                                                           
+
+#ifdef CONFIG_LGE_DM_APP
+	if (driver->logging_mode == DM_APP_MODE) {
+		printk(KERN_DEBUG "diag: USB disconnected in DM_APP_MODE\n");
+		driver->usb_connected = 0;
+
+		usb_diag_free_req(driver->legacy_ch);
+
+		return 0;
+	}
+#endif
 
 	printk(KERN_DEBUG "diag: USB disconnected\n");
 	driver->usb_connected = 0;
@@ -1987,6 +2197,31 @@ int diagfwd_read_complete(struct diag_request *diag_read_ptr)
 				queue_work(driver->diag_wq,
 						 &(driver->diag_read_work));
 		}
+
+//                                                                             
+#ifdef CONFIG_LGE_DM_DEV
+		if (driver->logging_mode == DM_DEV_MODE) {
+			if (status != -ECONNRESET && status != -ESHUTDOWN)
+				queue_work(driver->diag_wq,
+					&(driver->diag_proc_hdlc_work));
+			else
+				queue_work(driver->diag_wq,
+						 &(driver->diag_read_work));
+		}
+#endif /*                 */
+//                                                                           
+
+#ifdef CONFIG_LGE_DM_APP
+		if (driver->logging_mode == DM_APP_MODE) {
+			if (status != -ECONNRESET && status != -ESHUTDOWN)
+				queue_work(driver->diag_wq,
+					&(driver->diag_proc_hdlc_work));
+			else
+				queue_work(driver->diag_wq,
+						 &(driver->diag_read_work));
+		}
+#endif
+
 	}
 #ifdef CONFIG_DIAG_SDIO_PIPE
 	else if (buf == (void *)driver->usb_buf_mdm_out) {
@@ -2583,6 +2818,12 @@ void diagfwd_init(void)
 		goto err;
 	}
 #endif
+
+#ifdef CONFIG_USB_G_LGE_ANDROID_DIAG_OSP_SUPPORT
+	driver->diag_read_status = 1;
+	init_waitqueue_head(&driver->diag_read_wait_q);
+#endif
+
 	platform_driver_register(&msm_smd_ch1_driver);
 	platform_driver_register(&diag_smd_lite_driver);
 
