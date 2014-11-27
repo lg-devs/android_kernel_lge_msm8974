@@ -22,7 +22,11 @@
 #define MSM_VDEC_DVC_NAME "msm_vdec_8974"
 #define MIN_NUM_OUTPUT_BUFFERS 4
 #define MAX_NUM_OUTPUT_BUFFERS VB2_MAX_FRAME
-#define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8010
+// Original CAF version
+//#define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8010
+// LG's version
+//#define DEFAULT_CONCEAL_COLOR 0x108080
+#define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x108080
 #define MB_SIZE_IN_PIXEL (16 * 16)
 
 #define TZ_DYNAMIC_BUFFER_FEATURE_ID 12
@@ -1163,6 +1167,16 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			dprintk(VIDC_WARN,
 				"Failed to set new buffer count(%d) on FW, err: %d\n",
 				new_buf_count.buffer_count_actual, rc);
+		}
+		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
+		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
+		new_buf_count.buffer_count_actual = *num_buffers;
+		rc = call_hfi_op(hdev, session_set_property,
+		inst->session, property_id, &new_buf_count);
+		if (rc) {
+			dprintk(VIDC_WARN,
+					"Failed to set new buffer count(%d) on FW, err: %d\n",
+			new_buf_count.buffer_count_actual, rc);
 		}
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:

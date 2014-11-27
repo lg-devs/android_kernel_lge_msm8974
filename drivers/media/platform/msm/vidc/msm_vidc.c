@@ -1146,8 +1146,11 @@ static int setup_event_queue(void *inst,
 {
 	int rc = 0;
 	struct msm_vidc_inst *vidc_inst = (struct msm_vidc_inst *)inst;
+    //unsigned long flags;
 
+	spin_lock_irqsave(&pvdev->fh_lock, flags);
 	v4l2_fh_init(&vidc_inst->event_handler, pvdev);
+	spin_unlock_irqrestore(&pvdev->fh_lock, flags);
 	v4l2_fh_add(&vidc_inst->event_handler);
 
 	return rc;

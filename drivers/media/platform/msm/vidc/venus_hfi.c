@@ -2083,6 +2083,26 @@ static int venus_hfi_get_q_size(struct venus_hfi_device *dev,
 	return rc;
 }
 
+static int venus_hfi_is_msg_pending(struct venus_hfi_device *dev)
+{
+	struct hfi_queue_header *queue;
+	struct vidc_iface_q_info *q_info;
+	u32 write_ptr, read_ptr;
+	u32 rc = 0;
+	q_info = &dev->iface_queues[VIDC_IFACEQ_MSGQ_IDX];
+	if (!q_info)
+		dprintk(VIDC_ERR, "cannot read shared Q's");
+	queue = (struct hfi_queue_header *) q_info->q_hdr;
+	if (!queue) {
+		dprintk(VIDC_ERR, "queue not present");
+		return -ENOENT;
+	}
+	write_ptr = (u32)queue->qhdr_write_idx;
+	read_ptr = (u32)queue->qhdr_read_idx;
+	rc = read_ptr - write_ptr;
+	return rc;
+}
+
 static inline void venus_hfi_clk_gating_on(struct venus_hfi_device *device)
 {
 	if (!device) {
