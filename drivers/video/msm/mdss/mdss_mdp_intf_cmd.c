@@ -15,6 +15,7 @@
 
 #include "mdss_mdp.h"
 #include "mdss_panel.h"
+#include "mdss_dsi.h"
 
 #define VSYNC_EXPIRE_TICK 4
 
@@ -22,6 +23,10 @@
 #define CONTINUE_THRESHOLD 4
 
 #define MAX_SESSIONS 2
+
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)
+extern int is_fboot;
+#endif
 
 /* wait for at most 2 vsync for lowest refresh rate (24hz) */
 #define KOFF_TIMEOUT msecs_to_jiffies(84)
@@ -223,6 +228,7 @@ static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx)
 	spin_lock_irqsave(&ctx->clk_lock, flags);
 	if (!ctx->rdptr_enabled)
 		set_clk_off = 1;
+
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
 
 	if (ctx->clk_enabled && set_clk_off) {
@@ -230,8 +236,9 @@ static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx)
 		mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_SUSPEND);
 		mdss_mdp_ctl_intf_event
 			(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)0);
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
-	}
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+			complete(&ctx->stop_comp);
+		}
 	mutex_unlock(&ctx->clk_mtx);
 }
 
@@ -422,8 +429,15 @@ int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl, bool handoff)
 {
 	struct mdss_panel_data *pdata;
 	int ret = 0;
+#if defined(CONFIG_MACH_LGE)
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+#endif
 
 	pdata = ctl->panel_data;
+#if defined(CONFIG_MACH_LGE)
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+			panel_data);
+#endif
 
 	pdata->panel_info.cont_splash_enabled = 0;
 
@@ -432,6 +446,13 @@ int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl, bool handoff)
 
 	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)0);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+#if defined(CONFIG_MACH_LGE)
+	/*           
+                                                            
+                       
+  */
+	ctrl_pdata->ctrl_state |= CTRL_STATE_PANEL_INIT;
+#endif
 
 	return ret;
 }
@@ -442,6 +463,7 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 	unsigned long flags;
 	int need_wait = 0;
 	int rc = 0;
+	int flush_wq = (int) arg;
 
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->priv_data;
 	if (!ctx) {
@@ -461,7 +483,11 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 		rc = wait_for_completion_timeout(
 				&ctx->pp_comp, KOFF_TIMEOUT);
 
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)
+		if (!is_fboot && rc <= 0) {
+#else
 		if (rc <= 0) {
+#endif
 			WARN(1, "cmd kickoff timed out (%d) ctl=%d\n",
 						rc, ctl->num);
 			rc = -EPERM;
@@ -470,6 +496,9 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 			rc = 0;
 		}
 	}
+
+	if (flush_wq)
+		flush_work_sync(&ctx->pp_done_work);
 
 	return rc;
 }
@@ -542,6 +571,7 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 	int need_wait = 0;
 	int ret = 0;
 
+	pr_info("%s\n", __func__);
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->priv_data;
 	if (!ctx) {
 		pr_err("invalid ctx\n");
@@ -611,13 +641,14 @@ int mdss_mdp_cmd_stop(struct mdss_mdp_ctl *ctl)
 	return 0;
 }
 
+
 int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 {
 	struct mdss_mdp_cmd_ctx *ctx;
 	struct mdss_mdp_mixer *mixer;
 	int i, ret;
 
-	pr_debug("%s:+\n", __func__);
+	pr_info("%s\n", __func__);
 
 	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
 	if (!mixer) {
