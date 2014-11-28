@@ -832,6 +832,7 @@ xt_replace_table(struct xt_table *table,
 		return NULL;
 	}
 
+	mb();
 	newinfo->initial_entries = private->initial_entries;
 	/*
 	 * Ensure contents of newinfo are visible before assigning to
