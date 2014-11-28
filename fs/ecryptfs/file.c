@@ -210,12 +210,12 @@ static int ecryptfs_open(struct inode *inode, struct file *file)
 		crypt_stat->flags |= (ECRYPTFS_POLICY_APPLIED
 				      | ECRYPTFS_ENCRYPTED);
 #if 1 // FEATURE_SDCARD_ENCRYPTION DEBUG
-    if (mount_crypt_stat && (mount_crypt_stat->flags
+if (mount_crypt_stat && (mount_crypt_stat->flags
                         & ECRYPTFS_DECRYPTION_ONLY)) {
-        ecryptfs_printk(KERN_ERR, "%s:%d:: Error decryption_only set\n", __FUNCTION__, __LINE__);
-    }
+ecryptfs_printk(KERN_ERR, "%s:%d:: Error decryption_only set\n", __FUNCTION__, __LINE__);
+}
 #endif
-    }
+	}
 	mutex_unlock(&crypt_stat->cs_mutex);
 	rc = ecryptfs_get_lower_file(ecryptfs_dentry, inode);
 	if (rc) {

@@ -194,7 +194,7 @@ static const match_table_t tokens = {
 	{ecryptfs_opt_unlink_sigs, "ecryptfs_unlink_sigs"},
 	{ecryptfs_opt_mount_auth_tok_only, "ecryptfs_mount_auth_tok_only"},
 	{ecryptfs_opt_check_dev_ruid, "ecryptfs_check_dev_ruid"},
-    {ecryptfs_opt_decryption_only, "decryption_only"}, // FEATURE_SDCARD_ENCRYPTION
+	{ecryptfs_opt_decryption_only, "decryption_only"}, // FEATURE_SDCARD_ENCRYPTION
 	{ecryptfs_opt_err, NULL}
 };
 
@@ -388,11 +388,11 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 			mount_crypt_stat->flags |=
 				ECRYPTFS_GLOBAL_MOUNT_AUTH_TOK_ONLY;
 			break;
+		case ecryptfs_opt_decryption_only: // FEATURE_SDCARD_ENCRYPTION
+			mount_crypt_stat->flags |= ECRYPTFS_DECRYPTION_ONLY;
+			break;
 		case ecryptfs_opt_check_dev_ruid:
 			*check_ruid = 1;
-			break;
-        case ecryptfs_opt_decryption_only: // FEATURE_SDCARD_ENCRYPTION
-			mount_crypt_stat->flags |= ECRYPTFS_DECRYPTION_ONLY;
 			break;
 		case ecryptfs_opt_err:
 		default:

@@ -1,14 +1,16 @@
+//FEATURE_SDCARD_MEDIAEXN_SYSTEMCALL_ENCRYPTION
+
 #include <linux/kernel.h>
 #include <linux/linkage.h>
 #include <linux/sched.h>
 #include <linux/unistd.h>
 #include "LGSDEncManager.h"
 
-int propertyMediaCheck;				// Media Ecryption ÃƒÂ¼Ã…Â© Â¿Â©ÂºÃŽ
+int propertyMediaCheck;				// Media Ecryption Ã¼Å© ¿©ºÎ
 char savedfileExtList[MAX_MEDIA_EXT_LENGTH];
 
 /*
-*     System propertyÃ€Ã‡ Media Encryption Â¿Â©ÂºÃŽ Ã€ÃºÃ€Ã¥.
+*     System propertyÀÇ Media Encryption ¿©ºÎ ÀúÀå.
 */
 asmlinkage long sys_set_media_property(int value)
 {
@@ -22,7 +24,7 @@ int getMediaProperty(void){
 }
 
 /*
-* Media File ÃˆÂ®Ã€Ã¥Ã€Ãš Ã€ÃºÃ€Ã¥ System call Ã‡Ã”Â¼Ã¶.
+* Media File È®ÀåÀÚ ÀúÀå System call ÇÔ¼ö.
 */
 asmlinkage long sys_set_media_ext(char *mediaExtList)
 {
@@ -46,13 +48,13 @@ char *ecryptfs_Extfilename(const unsigned char *filename){
 		return pos;    
 	}
 
-	// ÃˆÂ®Ã€Ã¥Ã€Ãš ÃƒÃŸÃƒÃ¢ : ex> a.txt -> .txt    
+	// È®ÀåÀÚ ÃßÃâ : ex> a.txt -> .txt    
 	pos = strrchr(filename,'.');   
 	if(pos == NULL){    	
 		return pos;    
 	}    	
 
-	// Â¼Ã’Â¹Â®Ã€Ãš -> Â´Ã«Â¹Â®Ã€Ãš	
+	// ¼Ò¹®ÀÚ -> ´ë¹®ÀÚ	
 	len = strlen(pos);	
 	for(i = 0 ; i < len ; i++){		
 		if(*(pos+i) >= 'a' && *(pos+i) <= 'z'){			
@@ -65,7 +67,7 @@ char *ecryptfs_Extfilename(const unsigned char *filename){
 int ecryptfs_mediaFileSearch(const unsigned char *filename){
 	char *extP = NULL;
 
-	// FilenameÂ¿Â¡Â¼Â­ ÃˆÂ®Ã€Ã¥Ã€Ãš ÃƒÃŸÃƒÃ¢.
+	// Filename¿¡¼­ È®ÀåÀÚ ÃßÃâ.
 	extP = ecryptfs_Extfilename(filename);
 	if(extP == NULL || strlen(extP) < 2){
 		printk(KERN_DEBUG "%s :: Extfilename is NULL\n", __func__);
@@ -74,7 +76,7 @@ int ecryptfs_mediaFileSearch(const unsigned char *filename){
 
 	printk("%s :: savedfileExtList: %s\n", __func__,savedfileExtList);
 
-	// MediaTypeÂ¿Â¡ ÃÂ¸Ã€Ã§ Â¿Â©ÂºÃŽ ÃˆÂ®Ã€ÃŽ	// ÃÂ¸Ã€Ã§Ã‡ÃÂ¸Ã© status = 1Ã€Â¸Â·ÃŽ ÂºÂ¯ÃˆÂ¯ : Â¹ÃŒÂµÃ°Â¾Ã® Ã†Ã„Ã€ÃÃ€ÃŒÂ¶Ã³Â´Ã‚ Ã€Ã‡Â¹ÃŒ	
+	// MediaType¿¡ Á¸Àç ¿©ºÎ È®ÀÎ	// Á¸ÀçÇÏ¸é status = 1À¸·Î º¯È¯ : ¹Ìµð¾î ÆÄÀÏÀÌ¶ó´Â ÀÇ¹Ì	
 	if(sizeof(savedfileExtList) != 0)
 	{
 		if(strstr(savedfileExtList,extP) == NULL){ 		  
@@ -90,3 +92,4 @@ int ecryptfs_mediaFileSearch(const unsigned char *filename){
 
 	return 1;
 }
+
