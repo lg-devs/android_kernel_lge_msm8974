@@ -17,6 +17,8 @@
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/power_supply.h>
+#include <linux/zwait.h>
+#include <linux/mock_power.h>
 #include "power_supply.h"
 
 /* exported for the APM Power driver, APM emulation */
@@ -24,6 +26,27 @@ struct class *power_supply_class;
 EXPORT_SYMBOL_GPL(power_supply_class);
 
 static struct device_type power_supply_dev_type;
+
+#ifdef CONFIG_ZERO_WAIT
+static int forbid_change = 0;
+
+static inline bool psy_cannot_change(void)
+{
+	return forbid_change;
+}
+
+void power_supply_forbid_change_all(void)
+{
+	forbid_change = 1;
+}
+
+void power_supply_permit_change_all(void)
+{
+	forbid_change = 0;
+}
+#else
+#define psy_cannot_change()	(0)
+#endif
 
 /**
  * power_supply_set_current_limit - set current limit
@@ -213,6 +236,9 @@ void power_supply_changed(struct power_supply *psy)
 
 	dev_dbg(psy->dev, "%s\n", __func__);
 
+	if (psy_cannot_change())
+		return;
+
 	spin_lock_irqsave(&psy->changed_lock, flags);
 	psy->changed = true;
 	wake_lock(&psy->work_wake_lock);
@@ -365,8 +391,20 @@ int power_supply_register(struct device *parent, struct power_supply *psy)
 
 	power_supply_changed(psy);
 
+	rc = zw_power_supply_register(psy);
+	if (rc < 0)
+		goto zw_power_failed;
+
+	rc = mock_power_supply_register(psy);
+	if (rc < 0)
+		goto mock_power_failed;
+
 	goto success;
 
+mock_power_failed:
+	zw_power_supply_unregister(psy);
+zw_power_failed:
+	power_supply_remove_triggers(psy);
 create_triggers_failed:
 	wake_lock_destroy(&psy->work_wake_lock);
 	device_del(dev);
@@ -382,6 +420,8 @@ void power_supply_unregister(struct power_supply *psy)
 {
 	cancel_work_sync(&psy->changed_work);
 	sysfs_remove_link(&psy->dev->kobj, "powers");
+	mock_power_supply_unregister(psy);
+	zw_power_supply_unregister(psy);
 	power_supply_remove_triggers(psy);
 	wake_lock_destroy(&psy->work_wake_lock);
 	device_unregister(psy->dev);

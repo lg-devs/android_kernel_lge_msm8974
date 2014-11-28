@@ -58,7 +58,8 @@
 
 #define MAX_BAM_DESCRIPTOR_COUNT	(8 * 1024 - 2)
 
-#define TSPP_BUFFER_SIZE		(500 * 1024) /* 500KB */
+//#define TSPP_BUFFER_SIZE		(500 * 1024) /* 500KB */
+#define TSPP_BUFFER_SIZE		(2 * 1024 * 1024) /* 2MB */
 
 #define TSPP_DESCRIPTOR_SIZE	(TSPP_RAW_TTS_SIZE)
 
@@ -85,7 +86,12 @@ enum mem_buffer_allocation_mode {
 /* module parameters for load time configuration */
 static int clock_inv;
 static int tsif_mode = 2;
-static int allocation_mode = MPQ_DMX_TSPP_INTERNAL_ALLOC;
+
+/*                         */
+//static int allocation_mode = MPQ_DMX_TSPP_INTERNAL_ALLOC;
+static int allocation_mode = MPQ_DMX_TSPP_CONTIGUOUS_PHYS_ALLOC;
+/*                         */
+
 static int tspp_out_buffer_size = TSPP_BUFFER_SIZE;
 static int tspp_notification_size =
 	TSPP_NOTIFICATION_SIZE(TSPP_DESCRIPTOR_SIZE);
@@ -1470,7 +1476,7 @@ static int mpq_tspp_dmx_remove_channel(struct dvb_demux_feed *feed)
 
 	MPQ_DVB_DBG_PRINT("%s: success, current_filter_count = %d\n",
 		__func__, mpq_dmx_tspp_info.tsif[tsif].current_filter_count);
-
+	/* [A1-DCM][1seg] case 01127259 ~ Qualcomm Americas Customer Portal, QCT patch for 1seg,  2013-04-02 taew00k.kang [start] */
 	if (*channel_ref_count == 0) {
 		/* channel is not used any more, release it */
 		tspp_unregister_notification(0, channel_id);
@@ -1481,6 +1487,8 @@ static int mpq_tspp_dmx_remove_channel(struct dvb_demux_feed *feed)
 		if (allocation_mode == MPQ_DMX_TSPP_CONTIGUOUS_PHYS_ALLOC)
 			mpq_dmx_channel_mem_free(tsif);
 	}
+	/* [A1-DCM][1seg] case 01127259 ~ Qualcomm Americas Customer Portal, QCT patch for 1seg,  2013-04-02 taew00k.kang [end] */
+
 
 	mutex_unlock(&mpq_dmx_tspp_info.tsif[tsif].mutex);
 	return 0;

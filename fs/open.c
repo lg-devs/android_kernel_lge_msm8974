@@ -33,6 +33,16 @@
 
 #include "internal.h"
 
+/*             
+  
+                                        
+                                             
+  
+                                  
+ */
+#include "sreadahead_prof.h"
+/*             */
+
 int do_truncate(struct dentry *dentry, loff_t length, unsigned int time_attrs,
 	struct file *filp)
 {
@@ -987,6 +997,16 @@ long do_sys_open(int dfd, const char __user *filename, int flags, umode_t mode)
 			} else {
 				fsnotify_open(f);
 				fd_install(fd, f);
+                /*             
+                  
+                                                        
+                                                             
+                  
+                                                  
+                 */
+                sreadahead_prof( f, 0, 0);
+                /*              */
+
 			}
 		}
 		putname(tmp);
@@ -1106,6 +1126,8 @@ EXPORT_SYMBOL(sys_close);
  */
 SYSCALL_DEFINE0(vhangup)
 {
+	if (!ccs_capable(CCS_SYS_VHANGUP))
+		return -EPERM;
 	if (capable(CAP_SYS_TTY_CONFIG)) {
 		tty_vhangup_self();
 		return 0;

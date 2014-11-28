@@ -21,8 +21,12 @@
 
 #define MSM_VDEC_DVC_NAME "msm_vdec_8974"
 #define MIN_NUM_OUTPUT_BUFFERS 4
+#ifdef CONFIG_MACH_LGE
+#define MAX_NUM_OUTPUT_BUFFERS VIDEO_MAX_FRAME
+#else
 #define MAX_NUM_OUTPUT_BUFFERS 6
-#define DEFAULT_CONCEAL_COLOR 0x0
+#endif
+#define DEFAULT_CONCEAL_COLOR 0x108080
 
 #define TZ_INFO_GET_FEATURE_VERSION_ID 0x3
 #define TZ_DYNAMIC_BUFFER_FEATURE_ID 12
@@ -1109,6 +1113,16 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			dprintk(VIDC_WARN,
 				"Failed to set new buffer count(%d) on FW, err: %d\n",
 				new_buf_count.buffer_count_actual, rc);
+		}
+		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
+		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
+		new_buf_count.buffer_count_actual = *num_buffers;
+		rc = call_hfi_op(hdev, session_set_property,
+		inst->session, property_id, &new_buf_count);
+		if (rc) {
+			dprintk(VIDC_WARN,
+					"Failed to set new buffer count(%d) on FW, err: %d\n",
+			new_buf_count.buffer_count_actual, rc);
 		}
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:

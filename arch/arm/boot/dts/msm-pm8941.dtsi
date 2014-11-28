@@ -194,7 +194,7 @@
 
 		qcom,vddmax-mv = <4200>;
 		qcom,vddsafe-mv = <4230>;
-		qcom,vinmin-mv = <4300>;
+		qcom,vinmin-mv = <4200>;
 		qcom,ibatmax-ma = <1500>;
 		qcom,ibatterm-ma = <100>;
 		qcom,ibatsafe-ma = <1500>;
@@ -1015,6 +1015,35 @@
 		qcom,freq@1c00 {
 			reg = <0x1c00 0x100>;
 		};
+		pwm@e400 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xe400 0x100>,
+			      <0xe342 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <8>;
+		};
+		pwm@e500 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xe500 0x100>,
+			      <0xe342 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <9>;
+		};
+		pwm@e600 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xe600 0x100>,
+			      <0xe342 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <10>;
+		};
+		pwm@e700 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xe700 0x100>,
+			      <0xe342 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <11>;
+		};
+
 	};
 
 	regulator@a000 {
@@ -1258,7 +1287,6 @@
 		compatible = "qcom,leds-qpnp";
 		reg = <0xd300 0x100>;
 		label = "flash";
-		flash-boost-supply = <&pm8941_chg_boost>;
 		torch-boost-supply = <&pm8941_boost>;
 	};
 

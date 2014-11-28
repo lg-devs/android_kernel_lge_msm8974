@@ -48,6 +48,7 @@
 #include <asm/system.h>
 
 #include <mach/socinfo.h>
+#include <mach/moca_kernel_probe.h>
 
 union gic_base {
 	void __iomem *common_base;
@@ -258,6 +259,7 @@ static void gic_show_resume_irq(struct gic_chip_data *gic)
 	     i = find_next_bit(pending, gic->max_irq, i+1)) {
 		pr_warning("%s: %d triggered", __func__,
 					i + gic->irq_offset);
+        IRQ_EVENT_PROBE(i + gic->irq_offset);
 	}
 }
 

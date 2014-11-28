@@ -199,7 +199,15 @@ static struct scatterlist *mmc_alloc_sg(int sg_len, int *err)
 {
 	struct scatterlist *sg;
 
+	#ifdef CONFIG_MACH_LGE
+		/*                                      
+                                                 
+  */
+		sg = kmalloc(sizeof(struct scatterlist)*sg_len, GFP_KERNEL|__GFP_NOFAIL);
+	#else
 	sg = kmalloc(sizeof(struct scatterlist)*sg_len, GFP_KERNEL);
+	#endif
+
 	if (!sg)
 		*err = -ENOMEM;
 	else {

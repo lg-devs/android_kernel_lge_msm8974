@@ -18,10 +18,18 @@
 #include <media/v4l2-subdev.h>
 #include <media/msmb_camera.h>
 #include "msm_camera_i2c.h"
+/*                                                                                                    */
+#include <linux/wakelock.h>
+/*                                                                                                    */
 
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
 
+/*                                                                                                     */
+#define CAMERA_ENTER_MOMENT                      1
+#define CAMERA_ENTER_MOMENT_AFTER                2
+static int current_moment;
+/*                                                                                                     */
 struct msm_actuator_ctrl_t;
 
 struct msm_actuator_func_tbl {
@@ -81,6 +89,9 @@ struct msm_actuator_ctrl_t {
 	uint16_t i2c_tbl_index;
 	enum cci_i2c_master_t cci_master;
 	uint32_t subdev_id;
+/*                                                                                                    */
+	struct wake_lock        camera_wake_lock;
+/*                                                                                                    */
 };
 
 #endif
