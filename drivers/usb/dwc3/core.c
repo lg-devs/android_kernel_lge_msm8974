@@ -59,7 +59,13 @@
 
 #include "debug.h"
 
+#if defined(CONFIG_MACH_MSM8974_G2_DCM)\
+	|| defined(CONFIG_MACH_MSM8974_G2_KDDI)\
+	|| defined(CONFIG_MACH_MSM8974_VU3_KR)
+static char *maximum_speed = "high";
+#else
 static char *maximum_speed = "super";
+#endif
 module_param(maximum_speed, charp, 0);
 MODULE_PARM_DESC(maximum_speed, "Maximum supported speed.");
 
