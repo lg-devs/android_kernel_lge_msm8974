@@ -173,6 +173,12 @@ struct lcd_panel_info {
 	u32 xres_pad;
 	/* Pad height */
 	u32 yres_pad;
+#ifdef CONFIG_OLED_SUPPORT
+	/* Margin width */
+	u32 xres_margin;
+	/* Margin height */
+	u32 yres_margin;
+#endif
 };
 
 
@@ -325,6 +331,10 @@ struct mdss_panel_info {
 	int pwm_pmic_gpio;
 	int pwm_lpg_chan;
 	int pwm_period;
+#ifdef CONFIG_OLED_SUPPORT
+	int blmap_size;
+	char *blmap;
+#endif
 	u32 mode_gpio_state;
 	bool dynamic_fps;
 	bool ulps_feature_enabled;

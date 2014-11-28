@@ -22,12 +22,137 @@
 #include <linux/qpnp/pwm.h>
 #include <linux/err.h>
 
+#ifdef CONFIG_LGE_SUPPORT_LCD_MAKER_ID
+#include <mach/board_lge.h>
+#include <linux/qpnp/qpnp-adc.h>
+#include <linux/err.h>
+#endif
+
 #include "mdss_dsi.h"
 
 #define DT_CMD_HDR 6
+#ifdef CONFIG_LGE_LCD_TUNING
+#define TUNING_REGSIZE 400
+#endif
+
+#if defined(CONFIG_MACH_LGE) || defined (CONFIG_OLED_SUPPORT)
+#include "mdss_mdp.h"
+#include "mdss_fb.h"
+extern struct msm_fb_data_type *mfd_base;
+#endif
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI)
+extern struct platform_device *of_find_device_by_node(struct device_node *np);
+static struct dsi_panel_cmds lge_ief_on_cmds;
+static struct dsi_panel_cmds lge_ief_off_cmds;
+#endif
+
+#ifdef CONFIG_LGE_LCD_TUNING
+extern int num_cmds;
+extern int tun_len;
+extern char init_buf[TUNING_REGSIZE];
+extern struct dsi_cmd_desc *tun_dsi_panel_on_cmds;
+struct mipi_panel_info *mipi;
+static struct dsi_cmd_desc *dsi_panel_on_cmds;
+static struct dsi_cmd_desc *dsi_panel_off_cmds;
+static int num_of_on_cmds;
+static int num_of_off_cmds;
+static char *on_cmds, *off_cmds;
+#endif
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
+#if defined(CONFIG_BACKLIGHT_LM3630)
+extern void lm3630_lcd_backlight_set_level(int level);
+#endif /* CONFIG_BACKLIGHT_LMXXXX */
+
+#if defined(CONFIG_MACH_LGE)
+struct mdss_panel_data *pdata_base;
+#endif
+
+#if defined(CONFIG_OLED_SUPPORT)
+extern int mdss_dsi_off(struct mdss_panel_data *pdata);
+#endif
+
+#ifdef CONFIG_LGE_SUPPORT_LCD_MAKER_ID
+int g_mvol_for_lcd;
+static lcd_vol_maker_tbl_type lcd_maker_table[LCD_MAKER_MAX] = {
+	{LCD_RENESAS_LGD, 0, 900},
+	{LCD_RENESAS_JDI, 901, 1800},
+};
+
+static lcd_maker_id get_lcd_maker_by_voltage(int mvol)
+{
+	lcd_maker_id lcd_maker = LCD_MAKER_MAX;
+	int i = 0;
+
+	for (i = 0; i < LCD_MAKER_MAX; i++) {
+		if (lcd_maker_table[i].min_mvol <= mvol &&
+			mvol <= lcd_maker_table[i].max_mvol) {
+			lcd_maker = lcd_maker_table[i].maker_id;
+			break;
+		}
+	}
+	g_mvol_for_lcd = mvol;
+	return lcd_maker;
+}
+
+lcd_maker_id get_panel_maker_id(void)
+{
+	lcd_maker_id maker_id = LCD_MAKER_MAX;
+	int acc_read_value = 0;
+	struct qpnp_vadc_result result;
+	int rc;
+
+/* LIMIT: Include ONLY A1, B1, Vu3, Z models used MSM8974 AA/AB */
+#ifdef CONFIG_ADC_READY_CHECK_JB
+	rc = qpnp_vadc_read_lge(P_MUX5_1_1, &result);
+#else
+	/* MUST BE IMPLEMENT :
+	 * After MSM8974 AC and later version(PMIC combination change),
+	 * ADC AMUX of PMICs are separated in each dual PMIC.
+	 *
+	 * Ref.
+	 * qpnp-adc-voltage.c : *qpnp_get_vadc(), qpnp_vadc_read().
+	 * qpnp-charger.c     : new implementation by QCT.
+	 */
+	return maker_id;
+#endif
+	if (rc < 0) {
+		if (rc == -ETIMEDOUT) {
+			acc_read_value = 0;
+		}
+		pr_err("%s : adc read "
+				"error - %d\n", __func__, rc);
+	}
+	acc_read_value = (int)result.physical / 1000;
+	pr_debug("%s: acc_read_value - %d\n", __func__,
+			(int)result.physical);
+	maker_id = get_lcd_maker_by_voltage(acc_read_value);
+
+	return maker_id;
+}
+EXPORT_SYMBOL(get_panel_maker_id);
+#endif
+
+#if defined(CONFIG_LGE_SUPORT_OLED_TUNING)
+#include "mdss_mdp.h"
+#define	IMG_TUNE_COUNT	6
+static int img_tune_mode = 1;	/* Default value : cm0(standard) + plc 60% */
+struct img_tune_cmds_desc {
+	struct dsi_panel_cmds img_tune_cmds[IMG_TUNE_COUNT];
+};
+static char *img_tune_dt[] = {
+	"qcom,img-tune-cmds-cm0",
+	"qcom,img-tune-cmds-ce-cm0-plc60",
+	"qcom,img-tune-cmds-cm1",
+	"qcom,img-tune-cmds-ce-cm1-plc60",
+	"qcom,img-tune-cmds-cm2",
+	"qcom,img-tune-cmds-ce-cm2-plc60",
+};
+static struct img_tune_cmds_desc *img_tune_cmds_set;
+
+static int bl_tune_mode = 1;	/* Default value : use the blmap */
+#endif
 void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	ctrl->pwm_bl = pwm_request(ctrl->pwm_lpg_chan, "lcd-bklt");
@@ -155,7 +280,16 @@ static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 
 	pr_debug("%s: level=%d\n", __func__, level);
 
+#ifdef CONFIG_OLED_SUPPORT
+       if (bl_tune_mode)
+				led_pwm1[1] = (unsigned char)ctrl->panel_data.panel_info.blmap[level];
+       else
+				led_pwm1[1] = (unsigned char)level;
+
+	pr_info("[Zee][OLED] %s: level=%d, blmap=%d\n", __func__, level, led_pwm1[1]);
+#else
 	led_pwm1[1] = (unsigned char)level;
+#endif
 
 	memset(&cmdreq, 0, sizeof(cmdreq));
 	cmdreq.cmds = &backlight_cmd;
@@ -219,10 +353,16 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
+#ifndef CONFIG_MACH_LGE
+	/*             
+                                    
+                                   
+  */
 	if (!gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 		pr_debug("%s:%d, reset line not configured\n",
 			   __func__, __LINE__);
 	}
+#endif
 
 	if (!gpio_is_valid(ctrl_pdata->rst_gpio)) {
 		pr_debug("%s:%d, reset line not configured\n",
@@ -240,8 +380,10 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			return rc;
 		}
 		if (!pinfo->panel_power_on) {
+#ifndef CONFIG_MACH_LGE
 			if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 				gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
+#endif
 
 			for (i = 0; i < pdata->panel_info.rst_seq_len; ++i) {
 				gpio_set_value((ctrl_pdata->rst_gpio),
@@ -264,10 +406,12 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 			pr_debug("%s: Reset panel done\n", __func__);
 		}
 	} else {
+#ifndef CONFIG_MACH_LGE
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
 			gpio_free(ctrl_pdata->disp_en_gpio);
 		}
+#endif
 		gpio_set_value((ctrl_pdata->rst_gpio), 0);
 		gpio_free(ctrl_pdata->rst_gpio);
 		if (gpio_is_valid(ctrl_pdata->mode_gpio))
@@ -365,7 +509,10 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 							u32 bl_level)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
-
+#ifdef CONFIG_OLED_SUPPORT
+	struct mipi_panel_info *mipi;
+	mipi  = &pdata->panel_info.mipi;
+#endif
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
@@ -385,12 +532,25 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 
 	switch (ctrl_pdata->bklt_ctrl) {
 	case BL_WLED:
+#if defined(CONFIG_BACKLIGHT_LM3630)
+		lm3630_lcd_backlight_set_level(bl_level);
+#else
 		led_trigger_event(bl_led_trigger, bl_level);
+#endif
 		break;
 	case BL_PWM:
 		mdss_dsi_panel_bklt_pwm(ctrl_pdata, bl_level);
 		break;
 	case BL_DCS_CMD:
+#ifdef CONFIG_OLED_SUPPORT
+		if (mipi->mode == DSI_VIDEO_MODE) {
+			if (bl_level > 0xFF)
+				bl_level = 0xFF;
+		} else {
+			pr_err("%s:%d, CMD MODE NOT SUPPORTED", __func__, __LINE__);
+			return;
+		}
+#endif
 		mdss_dsi_panel_bklt_dcs(ctrl_pdata, bl_level);
 		if (mdss_dsi_is_master_ctrl(ctrl_pdata)) {
 			struct mdss_dsi_ctrl_pdata *sctrl =
@@ -422,13 +582,32 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
+#if defined(CONFIG_MACH_LGE)
+	if (pdata_base == NULL)
+		pdata_base = pdata;
+#endif
 	mipi  = &pdata->panel_info.mipi;
 
-	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
+#ifdef CONFIG_LGE_SUPPORT_LCD_MAKER_ID
+	pr_info("%s: ctrl=%p ndx=%d maker=%d\n", __func__, ctrl, ctrl->ndx, get_panel_maker_id());
+#else
+	pr_info("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
+#endif
 
 	if (ctrl->on_cmds.cmd_cnt)
-		mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
+#ifdef CONFIG_LGE_LCD_TUNING
+		mdss_dsi_cmds_tx(pdata, &dsi_panel_tx_buf,
+				tun_dsi_panel_on_cmds,
+				num_of_on_cmds);
+#else
+	mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
 
+#ifdef CONFIG_OLED_SUPPORT
+	mdss_dsi_panel_img_tune_apply(IMG_TUNE_COUNT);
+	pr_info("[Zee][OLED] %s success\n", __func__);
+#endif
+
+#endif
 	pr_debug("%s:-\n", __func__);
 	return 0;
 }
@@ -446,16 +625,240 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 	ctrl = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	pr_debug("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
+	pr_info("%s: ctrl=%p ndx=%d\n", __func__, ctrl, ctrl->ndx);
 
 	mipi  = &pdata->panel_info.mipi;
+
+#if defined(CONFIG_MACH_LGE)
+	if (!gpio_get_value(ctrl->disp_en_gpio))  /* we should remove the semi-colon */
+		return 0;
+#endif
 
 	if (ctrl->off_cmds.cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds);
 
 	pr_debug("%s:-\n", __func__);
+#ifdef CONFIG_OLED_SUPPORT
+	pr_info("[Zee][OLED] %s success\n", __func__);
+#endif
 	return 0;
 }
+
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI)
+int mdss_dsi_panel_ief_off(void)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
+
+	if (pdata_base == NULL || mfd_base == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	if (mfd_base->panel_power_on == 0) {
+		pr_err("%s: Panel is off\n", __func__);
+		return -EPERM;
+	}
+
+	ctrl = container_of(pdata_base, struct mdss_dsi_ctrl_pdata,	panel_data);
+
+	if (lge_ief_off_cmds.cmd_cnt) {
+		pr_info("sending IEF_OFF code\n");
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+		mdss_dsi_panel_cmds_send(ctrl, &lge_ief_off_cmds);
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mdss_dsi_panel_ief_off);
+
+int mdss_dsi_panel_ief_on(void)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
+
+	if (pdata_base == NULL || mfd_base == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	if (mfd_base->panel_power_on == 0) {
+		pr_err("%s: Panel is off\n", __func__);
+		return -EPERM;
+	}
+
+	ctrl = container_of(pdata_base, struct mdss_dsi_ctrl_pdata,	panel_data);
+
+	if (lge_ief_on_cmds.cmd_cnt) {
+		pr_info("sending IEF_ON cSode\n");
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+		mdss_dsi_panel_cmds_send(ctrl, &lge_ief_on_cmds);
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(mdss_dsi_panel_ief_on);
+
+static ssize_t ief_on_off(struct device *dev,
+		struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int on_off;
+
+	if (!count)
+		return -EINVAL;
+
+	on_off = simple_strtoul(buf, NULL, 10);
+
+	pr_debug("[LCD][DEBUG] %s, %d", __func__, on_off);
+
+	if (on_off == 0)
+		mdss_dsi_panel_ief_off();
+	else
+		mdss_dsi_panel_ief_on();
+
+	return count;
+}
+DEVICE_ATTR(ief_on_off, 0644, NULL, ief_on_off);
+#endif
+
+#if defined(CONFIG_LGE_SUPORT_OLED_TUNING)
+
+static void dcs_read_cb(int data)
+{
+	pr_info("%s: data=0x%x\n", __func__, ntohl(data));
+}
+
+u32 mdss_dsi_dcs_read(struct mdss_dsi_ctrl_pdata *ctrl,
+			char cmd0, char cmd1)
+{
+	struct dcs_cmd_req cmdreq;
+
+	dcs_cmd[0] = cmd0;
+	dcs_cmd[1] = cmd1;
+	memset(&cmdreq, 0, sizeof(cmdreq));
+	cmdreq.cmds = &dcs_read_cmd;
+	cmdreq.cmds_cnt = 1;
+	cmdreq.flags = CMD_REQ_RX | CMD_REQ_COMMIT;
+	cmdreq.rlen = 1;
+	cmdreq.cb = dcs_read_cb; /* call back */
+	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
+	/*
+	 * blocked here, until call back called
+	 */
+
+	return 0;
+}
+
+int mdss_dsi_panel_img_tune_apply(unsigned int screen_mode)
+{
+	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
+
+	if (pdata_base == NULL) {
+		pr_err("%s: Invalid input data.\n", __func__);
+		return -EINVAL;
+	}
+	ctrl = container_of(pdata_base, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	if (pdata_base->panel_info.panel_power_on == 0) {
+		pr_err("%s: panel off state. This screen mode will not be applied.\n", __func__);
+		return -EINVAL;
+	}
+	/*
+		if (ctrl->ctrl_state != (CTRL_STATE_PANEL_INIT | CTRL_STATE_MDP_ACTIVE)) {
+			pr_err("%s: panel is not 'on' state(cur=%d). The screen mode will be applied next time.\n", __func__, ctrl->ctrl_state);
+			return -EINVAL;
+		}
+	*/
+	if ((screen_mode < 0) || (screen_mode > IMG_TUNE_COUNT)) {
+		pr_err("%s: invalid input data(%d). Retry(0-5).\n", __func__, screen_mode);
+		return -EINVAL;
+	}
+
+	if ((lge_get_boot_mode() == LGE_BOOT_MODE_FACTORY) || (lge_get_boot_mode() == LGE_BOOT_MODE_FACTORY2)) {
+		img_tune_mode = 0;
+		pr_info("%s: send the screen mode on(%d) in ftm boot.\n", __func__, img_tune_mode);
+	} else {
+		if (screen_mode == IMG_TUNE_COUNT) {
+			pr_info("%s: send the screen mode on(%d) from kernel.\n", __func__, img_tune_mode);
+		} else {
+			img_tune_mode = screen_mode;
+			pr_info("%s: send the screen mode on(%d) from user.\n", __func__, img_tune_mode);
+		}
+	}
+
+	if (img_tune_cmds_set->img_tune_cmds[img_tune_mode].cmd_cnt) {
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+/*		0 : CM0 / 1 : CM0 + PLC 60% / 2 : CM1 / 3 : CM1 + PLC 60% / 4 : CM2 / 5 : CM2 + PLC 60% */
+		mdss_dsi_panel_cmds_send(ctrl, &img_tune_cmds_set->img_tune_cmds[img_tune_mode]);
+		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+	}
+	return 0;
+}
+EXPORT_SYMBOL(mdss_dsi_panel_img_tune_apply);
+/* not used build error
+static ssize_t img_tune_mode_get(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", img_tune_mode);
+}
+
+static ssize_t img_tune_mode_set(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	unsigned int param;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+
+	sscanf(buf, "%x", &param);
+	mdss_dsi_panel_img_tune_apply(param);
+
+	return ret;
+}
+
+static ssize_t bl_tune_mode_get(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", bl_tune_mode);
+}
+
+static ssize_t bl_tune_mode_set(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	unsigned int param;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+
+	sscanf(buf, "%x", &param);
+	bl_tune_mode = param;
+
+	return ret;
+}
+
+static ssize_t mipi_dsi_read_set(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t size)
+{
+	unsigned int reg_addr;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+
+	struct mdss_dsi_ctrl_pdata *ctrl = NULL;
+	if (pdata_base == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+	ctrl = container_of(pdata_base, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	sscanf(buf, "%x", &reg_addr);
+	mdss_dsi_dcs_read(ctrl, (char)reg_addr, 0x00);
+
+	return ret;
+}
+
+static struct device_attribute panel_tuning_device_attrs[] = {
+	__ATTR(img_tune_mode, 0644, img_tune_mode_get, img_tune_mode_set),
+	__ATTR(bl_tune_mode, 0644, bl_tune_mode_get, bl_tune_mode_set),
+	__ATTR(mipi_dsi_read, 0644 , NULL, mipi_dsi_read_set),
+};
+*/
+#endif
 
 static void mdss_dsi_parse_lane_swap(struct device_node *np, char *dlane_swap)
 {
@@ -748,7 +1151,6 @@ static void mdss_panel_parse_te_params(struct device_node *np,
 	panel_info->te.refx100 = (!rc ? tmp : 6000);
 }
 
-
 static int mdss_dsi_parse_reset_seq(struct device_node *np,
 		u32 rst_seq[MDSS_DSI_RST_SEQ_LEN], u32 *rst_len,
 		const char *name)
@@ -867,6 +1269,9 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	u32 tmp;
 	int rc, i, len;
 	const char *data;
+#ifdef CONFIG_OLED_SUPPORT
+	u32 *array;
+#endif
 	static const char *pdest;
 	struct mdss_panel_info *pinfo = &(ctrl_pdata->panel_data.panel_info);
 
@@ -1011,6 +1416,35 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	pinfo->bl_max = (!rc ? tmp : 255);
 	ctrl_pdata->bklt_max = pinfo->bl_max;
 
+#ifdef CONFIG_OLED_SUPPORT
+	rc = of_property_read_u32(np, "qcom,blmap_size", &tmp);
+	pinfo->blmap_size = (!rc ? tmp : 0);
+
+	if (pinfo->blmap_size) {
+		array = kzalloc(sizeof(u32) * pinfo->blmap_size, GFP_KERNEL);
+		if (!array)
+			return -ENOMEM;
+
+		rc = of_property_read_u32_array(np, "qcom,blmap", array, pinfo->blmap_size);
+		if (rc) {
+			pr_err("%s:%d, uable to read backlight map\n",__func__, __LINE__);
+			return -EINVAL;
+		}
+		pinfo->blmap = kzalloc(sizeof(char) * pinfo->blmap_size, GFP_KERNEL);
+
+		if (!pinfo->blmap)
+			return -ENOMEM;
+
+		for (i = 0; i < pinfo->blmap_size; i++ )
+			pinfo->blmap[i] = (char)array[i];
+
+		if (array)
+			kfree(array);
+	} else {
+		pinfo->blmap = NULL;
+	}
+#endif
+
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-interleave-mode", &tmp);
 	pinfo->mipi.interleave_mode = (!rc ? tmp : 0);
 
@@ -1146,6 +1580,19 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->off_cmds,
 		"qcom,mdss-dsi-off-command", "qcom,mdss-dsi-off-command-state");
 
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI)
+	mdss_dsi_parse_dcs_cmds(np, &lge_ief_on_cmds, "qcom,panel-ief-on-cmds", "qcom,ief-on-dsi-state");
+
+	mdss_dsi_parse_dcs_cmds(np, &lge_ief_off_cmds, "qcom,panel-ief-off-cmds", "qcom,ief-off-dsi-state");
+#endif
+
+#if defined(CONFIG_LGE_SUPORT_OLED_TUNING)
+	img_tune_cmds_set = kzalloc(sizeof(struct img_tune_cmds_desc), GFP_KERNEL);
+	for (i = 0; i < IMG_TUNE_COUNT; i++)
+		mdss_dsi_parse_dcs_cmds(np, &img_tune_cmds_set->img_tune_cmds[i],
+				img_tune_dt[i], "qcom,img-tune-on-dsi-state");
+#endif
+
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->status_cmds,
 			"qcom,mdss-dsi-panel-status-command",
 				"qcom,mdss-dsi-panel-status-command-state");
@@ -1183,6 +1630,11 @@ int mdss_dsi_panel_init(struct device_node *node,
 	static const char *panel_name;
 	struct mdss_panel_info *pinfo;
 
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI)
+	struct device_node *dsi_ctrl_np = NULL;
+	struct platform_device *ctrl_pdev = NULL;
+#endif	
+
 	if (!node || !ctrl_pdata) {
 		pr_err("%s: Invalid arguments\n", __func__);
 		return -ENODEV;
@@ -1204,10 +1656,14 @@ int mdss_dsi_panel_init(struct device_node *node,
 		return rc;
 	}
 
+#ifdef CONFIG_MACH_LGE
+	cont_splash_enabled = lge_get_cont_splash_enabled();
+#else
 	if (!cmd_cfg_cont_splash)
 		pinfo->cont_splash_enabled = false;
 	pr_info("%s: Continuous splash %s", __func__,
 		pinfo->cont_splash_enabled ? "enabled" : "disabled");
+#endif
 
 	pinfo->dynamic_switch_pending = false;
 	pinfo->is_lpm_mode = false;
@@ -1216,6 +1672,26 @@ int mdss_dsi_panel_init(struct device_node *node,
 	ctrl_pdata->off = mdss_dsi_panel_off;
 	ctrl_pdata->panel_data.set_backlight = mdss_dsi_panel_bl_ctrl;
 	ctrl_pdata->switch_mode = mdss_dsi_panel_switch_mode;
+
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_MACH_MSM8974_Z_US) || defined(CONFIG_MACH_MSM8974_Z_KDDI)
+
+	/* Panel device is not created in KK release										*/
+	/* create the node file for controling the ief under the dsi controller device 				*/
+	/* file path: /sys/devices/fd922800.qcom,mdss_dsi/ief_on_off 						*/
+
+	dsi_ctrl_np = of_parse_phandle(node,
+				"qcom,mdss-dsi-panel-controller", 0);
+
+	if (!dsi_ctrl_np) {
+		pr_err("%s: Dsi controller node not initialized\n", __func__);
+		return -EPROBE_DEFER;
+	}
+
+	ctrl_pdev = of_find_device_by_node(dsi_ctrl_np);
+
+	rc = device_create_file(&ctrl_pdev->dev, &dev_attr_ief_on_off);		
+
+#endif
 
 	return 0;
 }

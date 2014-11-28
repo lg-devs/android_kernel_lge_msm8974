@@ -107,7 +107,8 @@ static struct mdss_mdp_pipe *mdss_mdp_rotator_pipe_alloc(void)
 	if (!pipe) {
 		mdss_mdp_wb_mixer_destroy(mixer);
 		pr_debug("dma pipe allocation failed\n");
-		return NULL;
+		//return NULL;
+		return pipe;
 	}
 
 	pipe->mixer_stage = MDSS_MDP_STAGE_UNUSED;
@@ -210,6 +211,8 @@ static int mdss_mdp_rotator_pipe_dequeue(struct mdss_mdp_rotator_session *rot)
  * to use rotator pipe. Note that this function assumes rotator pipe is idle.
  */
 static int __mdss_mdp_rotator_to_pipe(struct mdss_mdp_rotator_session *rot,
+// LG's version
+//static int inline __rotator_to_pipe(struct mdss_mdp_rotator_session *rot,
 		struct mdss_mdp_pipe *pipe)
 {
 	int ret;
@@ -225,9 +228,15 @@ static int __mdss_mdp_rotator_to_pipe(struct mdss_mdp_rotator_session *rot,
 	pipe->params_changed++;
 	rot->params_changed = 0;
 
+	/*
+	 * Clear previous SMP reservations and reserve according to the
+	 * latest configuration
+	 */
+	mdss_mdp_smp_unreserve(pipe);
+
 	ret = mdss_mdp_smp_reserve(pipe);
 	if (ret) {
-		pr_debug("unable to mdss_mdp_smp_reserve rot data\n");
+		pr_err("unable to mdss_mdp_smp_reserve rot data\n");
 		return ret;
 	}
 
@@ -297,6 +306,11 @@ static void mdss_mdp_rotator_commit_wq_handler(struct work_struct *work)
 {
 	struct mdss_mdp_rotator_session *rot;
 	int ret;
+
+	if (!work) {
+		pr_err("not a valid rot work struct\n");
+		return;
+	}
 
 	rot = container_of(work, struct mdss_mdp_rotator_session, commit_work);
 
@@ -400,6 +414,8 @@ static int mdss_mdp_rotator_queue(struct mdss_mdp_rotator_session *rot)
  * other sessions at a later point.
  */
 static int __mdss_mdp_rotator_pipe_reserve(struct mdss_mdp_rotator_session *rot)
+// LG's version
+//static int __rotator_pipe_reserve(struct mdss_mdp_rotator_session *rot)
 {
 	int ret;
 

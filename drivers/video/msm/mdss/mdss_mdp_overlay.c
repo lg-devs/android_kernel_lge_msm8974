@@ -35,10 +35,28 @@
 #include "mdss_mdp.h"
 #include "mdss_mdp_rotator.h"
 
+#ifdef CONFIG_MACH_LGE
+#include <linux/poison.h>
+#include <mach/board_lge.h>
+#endif
 #define VSYNC_PERIOD 16
 #define BORDERFILL_NDX	0x0BF000BF
 #define CHECK_BOUNDS(offset, size, max_size) \
 	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
+#ifdef CONFIG_MACH_LGE
+#define QMC_PATCH
+#endif
+#ifdef CONFIG_OLED_SUPPORT
+/*           
+                                                         
+                                                                   
+                                 
+ */
+#define QMC_POWERONOFF_PATCH
+#endif
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)
+#define QMC_POWERONOFF_PATCH
+#endif 
 
 #define IS_RIGHT_MIXER_OV(flags, dst_x, left_lm_w)	\
 	((flags & MDSS_MDP_RIGHT_MIXER) || (dst_x >= left_lm_w))
@@ -277,7 +295,6 @@ int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 			       src_h, req->dst_rect.h, req->vert_deci);
 			return -EINVAL;
 		}
-
 		if (req->flags & MDP_BWC_EN) {
 			if ((req->src.width != req->src_rect.w) ||
 			    (req->src.height != req->src_rect.h)) {
@@ -329,6 +346,15 @@ static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe)
 	struct mdss_mdp_perf_params perf;
 	int rc;
 
+#ifdef CONFIG_OLED_SUPPORT
+	if (unlikely(mdata->has_decimation && pipe->src_fmt->is_yuv &&
+		((pipe->src.w > 1280) && ((pipe->dst.w << 2) < pipe->src.w)))) {
+
+		if ((pipe->vert_deci > 0 && pipe->vert_deci < MAX_DECIMATION) &&
+			(pipe->horz_deci > 0 && pipe->horz_deci < MAX_DECIMATION))
+			pipe->vert_deci++;
+	}
+#endif
 	for (;;) {
 		rc = mdss_mdp_perf_calc_pipe(pipe, &perf, NULL, true);
 
@@ -461,29 +487,6 @@ static int __mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 		return rc;
 	}
 	return rc;
-}
-
-static inline void __mdss_mdp_overlay_set_chroma_sample(
-	struct mdss_mdp_pipe *pipe)
-{
-	pipe->chroma_sample_v = pipe->chroma_sample_h = 0;
-
-	switch (pipe->src_fmt->chroma_sample) {
-	case MDSS_MDP_CHROMA_H1V2:
-		pipe->chroma_sample_v = 1;
-		break;
-	case MDSS_MDP_CHROMA_H2V1:
-		pipe->chroma_sample_h = 1;
-		break;
-	case MDSS_MDP_CHROMA_420:
-		pipe->chroma_sample_v = 1;
-		pipe->chroma_sample_h = 1;
-		break;
-	}
-	if (pipe->horz_deci)
-		pipe->chroma_sample_h = 0;
-	if (pipe->vert_deci)
-		pipe->chroma_sample_v = 0;
 }
 
 int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
@@ -649,10 +652,7 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	pipe->dst.h = req->dst_rect.h;
 	pipe->horz_deci = req->horz_deci;
 	pipe->vert_deci = req->vert_deci;
-
-	memcpy(&pipe->scale, &req->scale, sizeof(struct mdp_scale_data));
 	pipe->src_fmt = fmt;
-	__mdss_mdp_overlay_set_chroma_sample(pipe);
 
 	pipe->mixer_stage = req->z_order;
 	pipe->is_fg = req->is_fg;
@@ -668,8 +668,7 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		pr_debug("Unintended blend_op %d on layer with no alpha plane\n",
 			pipe->blend_op);
 
-	if (fmt->is_yuv && !(pipe->flags & MDP_SOURCE_ROTATED_90) &&
-			!pipe->scale.enable_pxl_ext) {
+	if (fmt->is_yuv && !(pipe->flags & MDP_SOURCE_ROTATED_90)) {
 		pipe->overfetch_disable = OVERFETCH_DISABLE_BOTTOM;
 
 		if (!(pipe->flags & MDSS_MDP_DUAL_PIPE) ||
@@ -1064,8 +1063,12 @@ int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 		return 0;
 	}
 
+#ifdef CONFIG_MACH_LGE
+	if (mfd->index == 0)
+		pr_info("starting fb%d overlay\n", mfd->index);
+#else
 	pr_debug("starting fb%d overlay\n", mfd->index);
-
+#endif
 	rc = pm_runtime_get_sync(&mfd->pdev->dev);
 	if (IS_ERR_VALUE(rc)) {
 		pr_err("unable to resume with pm_runtime_get_sync rc=%d\n", rc);
@@ -1137,6 +1140,23 @@ static int __overlay_queue_pipes(struct msm_fb_data_type *mfd)
 	struct mdss_mdp_ctl *tmp;
 	int ret = 0;
 
+#ifdef QMC_POWERONOFF_PATCH
+	if (!mdp5_data || !mdp5_data->ctl) {
+		pr_err("ctl not initialized\n");
+		mutex_unlock(&mdp5_data->ov_lock);
+		if (ctl->shared_lock) 
+			mutex_unlock(ctl->shared_lock); 
+		return -ENODEV;
+	}
+
+	if (!mdp5_data->ctl->power_on) {
+		mutex_unlock(&mdp5_data->ov_lock);
+		if (ctl->shared_lock) 
+			mutex_unlock(ctl->shared_lock); 
+		return 0;
+	}
+#endif
+
 	/*
 	 * Setup pipe in solid fill before unstaging,
 	 * to ensure no fetches are happening after dettach or reattach.
@@ -1148,6 +1168,12 @@ static int __overlay_queue_pipes(struct msm_fb_data_type *mfd)
 
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, list) {
 		struct mdss_mdp_data *buf;
+
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL)
+		if (ctl->play_cnt == 0)
+			pipe->params_changed++;
+#endif
+
 		/*
 		 * When secure display is enabled, if there is a non secure
 		 * display pipe, skip that
@@ -2894,11 +2920,25 @@ static int mdss_mdp_overlay_on(struct msm_fb_data_type *mfd)
 			(mfd->panel_info->type != WRITEBACK_PANEL)) {
 			atomic_inc(&mfd->mdp_sync_pt_data.commit_cnt);
 			rc = mdss_mdp_overlay_kickoff(mfd, NULL);
+
+			if (mfd->panel_info->type == MIPI_CMD_PANEL)
+				mdss_mdp_display_wait4pingpong(mdp5_data->ctl);
 		}
 	} else {
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL)
+		if ((lge_get_boot_mode() == LGE_BOOT_MODE_MINIOS) &&
+				(mfd->panel_info->type == DTV_PANEL))
+			rc = mdss_mdp_overlay_start(mfd);
+		else {
+			rc = mdss_mdp_ctl_setup(mdp5_data->ctl);
+			if (rc)
+				return rc;
+		}
+#else
 		rc = mdss_mdp_ctl_setup(mdp5_data->ctl);
 		if (rc)
 			return rc;
+#endif
 	}
 
 	if (IS_ERR_VALUE(rc)) {
@@ -2914,6 +2954,7 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_mdp_mixer *mixer;
 	int need_cleanup;
+
 
 	if (!mfd)
 		return -ENODEV;
@@ -2975,7 +3016,6 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 			mdss_mdp_ctl_destroy(mdp5_data->ctl);
 			mdp5_data->ctl = NULL;
 		}
-
 		if (atomic_dec_return(&ov_active_panels) == 0)
 			mdss_mdp_rotator_release_all();
 
@@ -3373,6 +3413,9 @@ static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd)
 	int rc = 0;
 	struct platform_device *pdev = mfd->pdev;
 	struct mdss_overlay_private *mdp5_mdata = mfd_to_mdp5_data(mfd);
+#ifdef CONFIG_MACH_LGE
+	struct mdss_panel_data *pdata;
+#endif
 
 	mdp5_mdata->mixer_swap = of_property_read_bool(pdev->dev.of_node,
 					   "qcom,mdss-mixer-swap");
@@ -3380,6 +3423,10 @@ static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd)
 		pr_info("mixer swap is enabled for fb device=%s\n",
 			pdev->name);
 	}
+
+#ifdef CONFIG_MACH_LGE
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+#endif
 
 	return rc;
 }

@@ -40,6 +40,13 @@ static inline u64 apply_fudge_factor(u64 val,
 		return fudge_factor(val, factor->numer, factor->denom);
 }
 
+#ifdef CONFIG_OLED_SUPPORT
+#define QMC_SLIMPORT_UNDERRUN_PATCH
+#define QMC_POWERONOFF_PATCH
+#endif
+#if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)
+#define QMC_POWERONOFF_PATCH
+#endif 
 static DEFINE_MUTEX(mdss_mdp_ctl_lock);
 
 static int mdss_mdp_mixer_free(struct mdss_mdp_mixer *mixer);
@@ -841,6 +848,14 @@ static inline void mdss_mdp_ctl_perf_update_bus(struct mdss_mdp_ctl *ctl)
 			pr_debug("c=%d bw=%llu\n", ctl->num,
 				ctl->cur_perf.bw_ctl);
 		}
+/*
+#ifdef QMC_SLIMPORT_UNDERRUN_PATCH
+		if ((ctl->intf_type == MDSS_INTF_HDMI) &&
+				(total_ab_quota == 0) && (total_ib_quota == 0))
+				;
+		else
+#endif
+*/
 	}
 	bus_ib_quota = bw_sum_of_intfs;
 	bus_ab_quota = apply_fudge_factor(bw_sum_of_intfs,
@@ -1721,6 +1736,10 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl, bool handoff)
 	u32 outsize, temp;
 	int ret = 0;
 	int i, nmixers;
+#ifdef CONFIG_OLED_SUPPORT
+       u32 yres_margin;
+       yres_margin = ctl->panel_data->panel_info.lcdc.yres_margin;
+#endif
 
 	pr_debug("ctl_num=%d\n", ctl->num);
 
@@ -1758,7 +1777,14 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl, bool handoff)
 	temp |= (ctl->intf_type << ((ctl->intf_num - MDSS_MDP_INTF0) * 8));
 	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_DISP_INTF_SEL, temp);
 
+#ifdef CONFIG_OLED_SUPPORT
+       if (ctl->intf_num == MDSS_MDP_INTF1)
+	       outsize = ((mixer->height + yres_margin) << 16) | mixer->width;
+       else
+	       outsize = (mixer->height << 16) | mixer->width;
+#else
 	outsize = (mixer->height << 16) | mixer->width;
+#endif
 	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OUT_SIZE, outsize);
 
 	if (ctl->panel_data->panel_info.fbc.enabled) {
@@ -1844,9 +1870,17 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl)
 		return 0;
 	}
 
+#ifdef QMC_POWERONOFF_PATCH
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	if (mdp5_data)
+		mutex_lock(&mdp5_data->ov_lock);
+}
+#endif
+
 	sctl = mdss_mdp_get_split_ctl(ctl);
 
-	pr_debug("ctl_num=%d\n", ctl->num);
+	pr_info("ctl_num=%d\n", ctl->num);
 
 	mutex_lock(&ctl->lock);
 
@@ -1885,11 +1919,22 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl)
 		ctl->power_on = false;
 		ctl->play_cnt = 0;
 		mdss_mdp_ctl_perf_update(ctl, 0);
+#if defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(QMC_SLIMPORT_UNDERRUN_PATCH)
+		if (ctl->intf_type != MDSS_INTF_HDMI)
+#endif
 	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 
 	mutex_unlock(&ctl->lock);
+
+#ifdef QMC_POWERONOFF_PATCH
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+	if (mdp5_data)
+		mutex_unlock(&mdp5_data->ov_lock);
+}
+#endif
 
 	return ret;
 }
@@ -2467,10 +2512,25 @@ int mdss_mdp_display_wakeup_time(struct mdss_mdp_ctl *ctl,
 
 	current_line = ctl->read_line_cnt_fnc(ctl);
 
+#ifdef CONFIG_OLED_SUPPORT
+		if (ctl->intf_num == MDSS_MDP_INTF1) {
+	      total_line = pinfo->lcdc.v_back_porch +
+		     pinfo->lcdc.v_front_porch +
+		     pinfo->lcdc.v_pulse_width +
+		     pinfo->yres +
+		     pinfo->lcdc.yres_margin;
+       } else {
+	      total_line = pinfo->lcdc.v_back_porch +
+		     pinfo->lcdc.v_front_porch +
+		     pinfo->lcdc.v_pulse_width +
+		     pinfo->yres;
+       }
+#else
 	total_line = pinfo->lcdc.v_back_porch +
 		pinfo->lcdc.v_front_porch +
 		pinfo->lcdc.v_pulse_width +
 		pinfo->yres;
+#endif
 
 	if (current_line > total_line)
 		return -EINVAL;
@@ -2536,7 +2596,7 @@ int mdss_mdp_display_wait4pingpong(struct mdss_mdp_ctl *ctl)
 	}
 
 	if (ctl->wait_pingpong)
-		ret = ctl->wait_pingpong(ctl, NULL);
+		ret = ctl->wait_pingpong(ctl, (void*) 1);
 
 	mutex_unlock(&ctl->lock);
 
@@ -2615,7 +2675,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg)
 
 	ATRACE_BEGIN("wait_pingpong");
 	if (ctl->wait_pingpong)
-		ctl->wait_pingpong(ctl, NULL);
+		ctl->wait_pingpong(ctl, (void*) 0);
 	ATRACE_END("wait_pingpong");
 
 	ctl->roi_bkup.w = ctl->roi.w;

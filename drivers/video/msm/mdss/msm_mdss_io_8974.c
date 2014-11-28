@@ -746,6 +746,11 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 	pd = &(((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db);
 
 	/* Strength ctrl 0 */
+#ifdef CONFIG_OLED_SUPPORT
+	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0184, 0x07);
+    // LG version
+	//MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0484, 0x07);
+#endif
 	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0184, pd->strength[0]);
 
 	/*
@@ -762,8 +767,10 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 		}
 	}
 
+#ifndef CONFIG_OLED_SUPPORT
 	/* Regulator ctrl 0 */
 	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x280, 0x0);
+#endif
 	/* Regulator ctrl - CAL_PWR_CFG */
 	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x298, pd->regulator[6]);
 
@@ -780,11 +787,13 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 	/* Regulator ctrl 4 */
 	MIPI_OUTP((temp_ctrl->phy_io.base) + 0x290, pd->regulator[4]);
 
+#ifndef CONFIG_OLED_SUPPORT
 	/* LDO ctrl 0 */
 	if ((ctrl_pdata->panel_data).panel_info.pdest == DISPLAY_1)
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x00);
 	else
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x00);
+#endif
 
 	off = 0x0140;	/* phy timing ctrl 0 - 11 */
 	for (i = 0; i < 12; i++) {
@@ -817,7 +826,13 @@ void mdss_dsi_phy_init(struct mdss_panel_data *pdata)
 	}
 
 	/* MMSS_DSI_0_PHY_DSIPHY_CTRL_0 */
+#ifndef CONFIG_OLED_SUPPORT
 	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x5f);
+#else
+	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0170, 0x7f);
+    //LG version
+	//MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0470, 0x7f);
+#endif
 	wmb();
 
 	/* DSI_0_PHY_DSIPHY_GLBL_TEST_CTRL */

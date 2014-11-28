@@ -23,12 +23,23 @@
 #include "mdss_panel.h"
 #include "mdss_debug.h"
 #include "mdss_mdp_trace.h"
+#ifdef CONFIG_OLED_SUPPORT
+#include "mdss_dsi.h"	/* for 4th panel */
+#endif
+
+#ifdef CONFIG_MACH_LGE
+#include <mach/board_lge.h>
+#endif
 
 /* wait for at least 2 vsyncs for lowest refresh rate (24hz) */
 #define VSYNC_TIMEOUT_US 100000
 
 #define MDP_INTR_MASK_INTF_VSYNC(intf_num) \
 	(1 << (2 * (intf_num - MDSS_MDP_INTF0) + MDSS_MDP_IRQ_INTF_VSYNC))
+
+#ifdef CONFIG_OLED_SUPPORT
+extern int mdss_dsi_lane_config(struct mdss_panel_data *pdata, int enable);
+#endif
 
 /* intf timing settings */
 struct intf_timing_params {
@@ -188,6 +199,18 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 	polarity_ctl = (den_polarity << 2)   | /*  DEN Polarity  */
 		       (vsync_polarity << 1) | /* VSYNC Polarity */
 		       (hsync_polarity << 0);  /* HSYNC Polarity */
+
+#ifdef CONFIG_MACH_LGE
+	/*                            */
+	if (lge_get_boot_mode() == LGE_BOOT_MODE_MINIOS) {
+		if (MDSS_INTF_HDMI == ctx->intf_type) {
+			pr_info("[miniOS] Enable HDMI Grayscale Ramp Pattern");
+			mdp_video_write(ctx, MDSS_MDP_REG_INTF_TPG_ENABLE , 0x1);
+			mdp_video_write(ctx, MDSS_MDP_REG_INTF_TPG_MAIN_CONTROL, 0x40);
+		}
+	}
+	/*                            */
+#endif
 
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_HSYNC_CTL, hsync_ctl);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
@@ -691,6 +714,17 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 	struct mdss_mdp_ctl *sctl;
 	struct mdss_panel_data *pdata = ctl->panel_data;
 	int rc;
+#ifdef CONFIG_OLED_SUPPORT
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+
+	if (ctl->panel_data == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctrl_pdata = container_of(ctl->panel_data, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+#endif
 
 	pr_debug("kickoff ctl=%d\n", ctl->num);
 
@@ -755,7 +789,89 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 		ctx->timegen_en = true;
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_ON, NULL);
 		WARN(rc, "intf %d panel on error (%d)\n", ctl->intf_num, rc);
+
+#ifdef CONFIG_OLED_SUPPORT
+		if (ctl->panel_data->panel_info.type == MIPI_VIDEO_PANEL) {
+			mdss_dsi_lane_config(ctl->panel_data, 1);
+			if (!(ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT)) {
+				rc = ctrl_pdata->on(ctl->panel_data);
+				if (rc) {
+					pr_err("%s: unable to initialize the panel\n",
+								__func__);
+					return rc;
+				}
+				ctrl_pdata->ctrl_state |= CTRL_STATE_PANEL_INIT;
+			}
+			mdss_dsi_lane_config(ctl->panel_data, 0);
+		}
+#endif
 	}
+
+	return 0;
+}
+
+#ifdef CONFIG_LGE_LCD_TUNING
+extern u32 tun_porch_value[6];
+#endif
+
+int mdss_mdp_video_copy_splash_screen(struct mdss_panel_data *pdata)
+{
+	void *virt = NULL;
+	unsigned long bl_fb_addr = 0;
+	unsigned long *bl_fb_addr_va;
+	unsigned long  pipe_addr, pipe_src_size;
+	u32 height, width, rgb_size, bpp;
+	size_t size;
+	static struct ion_handle *ihdl;
+	struct ion_client *iclient = mdss_get_ionclient();
+	static ion_phys_addr_t phys;
+
+#if defined(CONFIG_MACH_LGE)
+	/* added checking null value for WBT #489168 */
+	if (IS_ERR_OR_NULL(iclient)) {
+		pr_err("unable to get iclient from ion (%p)\n", iclient);
+		return -ENOMEM;
+	}
+#endif
+
+	pipe_addr = MDSS_MDP_REG_SSPP_OFFSET(3) +
+		MDSS_MDP_REG_SSPP_SRC0_ADDR;
+	pipe_src_size =
+		MDSS_MDP_REG_SSPP_OFFSET(3) + MDSS_MDP_REG_SSPP_SRC_SIZE;
+
+	bpp        = 3;
+	rgb_size   = MDSS_MDP_REG_READ(pipe_src_size);
+	bl_fb_addr = MDSS_MDP_REG_READ(pipe_addr);
+
+	height = (rgb_size >> 16) & 0xffff;
+	width  = rgb_size & 0xffff;
+	size = PAGE_ALIGN(height * width * bpp);
+	pr_debug("%s:%d splash_height=%d splash_width=%d Buffer size=%d\n",
+			__func__, __LINE__, height, width, size);
+
+	ihdl = ion_alloc(iclient, size, SZ_1M,
+			ION_HEAP(ION_QSECOM_HEAP_ID), 0);
+	if (IS_ERR_OR_NULL(ihdl)) {
+		pr_err("unable to alloc fbmem from ion (%p)\n", ihdl);
+		return -ENOMEM;
+	}
+
+	pdata->panel_info.splash_ihdl = ihdl;
+
+	virt = ion_map_kernel(iclient, ihdl);
+	ion_phys(iclient, ihdl, &phys, &size);
+
+	pr_debug("%s %d Allocating %u bytes at 0x%lx (%pa phys)\n",
+			__func__, __LINE__, size,
+			(unsigned long int)virt, &phys);
+
+	bl_fb_addr_va = (unsigned long *)ioremap(bl_fb_addr, size);
+	memcpy(virt, bl_fb_addr_va, size);
+	iounmap(bl_fb_addr_va);
+
+	MDSS_MDP_REG_WRITE(pipe_addr, phys);
+	MDSS_MDP_REG_WRITE(MDSS_MDP_REG_CTL_FLUSH + MDSS_MDP_REG_CTL_OFFSET(0),
+			0x48);
 
 	return 0;
 }
@@ -851,17 +967,44 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_INTF_UNDER_RUN, ctl->intf_num,
 				   mdss_mdp_video_underrun_intr_done, ctl);
 
+#ifdef CONFIG_LGE_LCD_TUNING
+	/*           
+                                  
+                                    
+  */
+	pinfo->lcdc.h_back_porch = tun_porch_value[0];
+	pinfo->lcdc.h_front_porch = tun_porch_value[2];
+	pinfo->lcdc.v_back_porch = tun_porch_value[3];
+	pinfo->lcdc.v_front_porch = tun_porch_value[5];
+	pinfo->lcdc.h_pulse_width = tun_porch_value[1];
+	pinfo->lcdc.v_pulse_width = tun_porch_value[4];
+#endif
+
 	dst_bpp = pinfo->fbc.enabled ? (pinfo->fbc.target_bpp) : (pinfo->bpp);
 
 	itp.width = mult_frac((pinfo->xres + pinfo->lcdc.xres_pad),
 				dst_bpp, pinfo->bpp);
+#ifdef CONFIG_OLED_SUPPORT
+       if (ctl->intf_num == MDSS_MDP_INTF1)
+	       itp.height = pinfo->yres + pinfo->lcdc.yres_margin;
+       else
+	       itp.height = pinfo->yres + pinfo->lcdc.yres_pad;
+#else
 	itp.height = pinfo->yres + pinfo->lcdc.yres_pad;
+#endif
 	itp.border_clr = pinfo->lcdc.border_clr;
 	itp.underflow_clr = pinfo->lcdc.underflow_clr;
 	itp.hsync_skew = pinfo->lcdc.hsync_skew;
 
 	itp.xres =  mult_frac(pinfo->xres, dst_bpp, pinfo->bpp);
+#ifdef CONFIG_OLED_SUPPORT
+       if (ctl->intf_num == MDSS_MDP_INTF1)
+	       itp.yres = pinfo->yres + pinfo->lcdc.yres_margin;
+       else
+	       itp.yres = pinfo->yres;
+#else
 	itp.yres = pinfo->yres;
+#endif
 	itp.h_back_porch =  mult_frac(pinfo->lcdc.h_back_porch, dst_bpp,
 			pinfo->bpp);
 	itp.h_front_porch = mult_frac(pinfo->lcdc.h_front_porch, dst_bpp,
