@@ -82,6 +82,14 @@
 #define MSMFB_OVERLAY_PREPARE		_IOWR(MSMFB_IOCTL_MAGIC, 169, \
 						struct mdp_overlay_list)
 #define MSMFB_LPM_ENABLE        _IOWR(MSMFB_IOCTL_MAGIC, 170, unsigned int)
+
+#define MSMFB_INVERT_PANEL  _IOW(MSMFB_IOCTL_MAGIC, 171, unsigned int)
+
+#if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG) || defined(LGE_BROADCAST_ONESEG)
+#define MSMFB_DMB_SET_FLAG        _IOW(MSMFB_IOCTL_MAGIC, 172, int)
+#define MSMFB_DMB_SET_CSC_MATRIX  _IOW(MSMFB_IOCTL_MAGIC, 173, struct mdp_csc_cfg)
+#endif
+
 #define FB_TYPE_3D_PANEL 0x10101010
 #define MDP_IMGTYPE2_START 0x10000
 #define MSMFB_DRIVER_VERSION	0xF9E8D701
@@ -254,8 +262,8 @@ struct mdp_img {
  * {3x3} + {3} ccs matrix
  */
 
-#define MDP_CCS_RGB2YUV 	0
-#define MDP_CCS_YUV2RGB 	1
+#define MDP_CCS_RGB2YUV	0
+#define MDP_CCS_YUV2RGB	1
 
 #define MDP_CCS_SIZE	9
 #define MDP_BV_SIZE	3
