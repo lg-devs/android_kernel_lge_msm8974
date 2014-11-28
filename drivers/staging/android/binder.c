@@ -101,7 +101,7 @@ enum {
 	BINDER_DEBUG_BUFFER_ALLOC_ASYNC     = 1U << 15,
 	BINDER_DEBUG_TOP_ERRORS		    = 1U << 16,
 };
-static uint32_t binder_debug_mask;
+static uint32_t binder_debug_mask = BINDER_DEBUG_USER_ERROR | BINDER_DEBUG_FAILED_TRANSACTION | BINDER_DEBUG_DEAD_TRANSACTION;
 module_param_named(debug_mask, binder_debug_mask, uint, S_IWUSR | S_IRUGO);
 
 static bool binder_debug_no_lock;
@@ -664,6 +664,9 @@ static int binder_update_page_range(struct binder_proc *proc, int allocate,
 				     "for page at %p\n", proc->pid, page_addr);
 			goto err_alloc_page_failed;
 		}
+#ifdef CONFIG_LGE_MEMORY_INFO
+		__inc_zone_page_state(*page, NR_BINDER_PAGES);
+#endif
 		tmp_area.addr = page_addr;
 		tmp_area.size = PAGE_SIZE + PAGE_SIZE /* guard page? */;
 		page_array_ptr = page;
@@ -703,6 +706,9 @@ free_range:
 err_vm_insert_page_failed:
 		unmap_kernel_range((unsigned long)page_addr, PAGE_SIZE);
 err_map_kernel_failed:
+#ifdef CONFIG_LGE_MEMORY_INFO
+		__dec_zone_page_state(*page, NR_BINDER_PAGES);
+#endif
 		__free_page(*page);
 		*page = NULL;
 err_alloc_page_failed:
@@ -3128,6 +3134,9 @@ static void binder_deferred_release(struct binder_proc *proc)
 					     page_addr);
 				unmap_kernel_range((unsigned long)page_addr,
 					PAGE_SIZE);
+#ifdef CONFIG_LGE_MEMORY_INFO
+				__dec_zone_page_state(proc->pages[i], NR_BINDER_PAGES);
+#endif
 				__free_page(proc->pages[i]);
 				page_count++;
 			}
