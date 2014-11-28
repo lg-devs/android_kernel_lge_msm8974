@@ -98,18 +98,18 @@ else
 $(KERNEL_CONFIG): $(KERNEL_OUT)
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) ARCH=arm CROSS_COMPILE=arm-eabi- $(KERNEL_DEFCONFIG)
 
-ifeq ($(TARGET_PRODUCT),b1_cmcc_cn)
-	echo "CONFIG_BRCM_WAPI=y" >> $(KERNEL_CONFIG)
-endif
-
-endif
-
 ifneq ($(TARGET_BUILD_VARIANT), user)
 	echo "CONFIG_MMC_MSM_DEBUGFS=y" >> $(KERNEL_CONFIG)
 ifeq ($(strip $(USES_VMWARE_VIRTUALIZATION)), true)
 	echo "CONFIG_VMWARE_MVP_DEBUG=y" >> $(KERNEL_CONFIG)
 	echo "CONFIG_VMWARE_PVTCP_DEBUG=y" >> $(KERNEL_CONFIG)
 endif
+endif
+
+ifeq ($(TARGET_PRODUCT),b1_cmcc_cn)
+	echo "CONFIG_BRCM_WAPI=y" >> $(KERNEL_CONFIG)
+endif
+
 endif
 
 $(KERNEL_OUT)/piggy : $(TARGET_PREBUILT_INT_KERNEL)
