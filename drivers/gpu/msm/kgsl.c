@@ -3440,6 +3440,8 @@ static long kgsl_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	if (lock)
 		mutex_lock(&dev_priv->device->mutex);
 
+
+
 	ret = func(dev_priv, cmd, uptr);
 
 	if (lock)

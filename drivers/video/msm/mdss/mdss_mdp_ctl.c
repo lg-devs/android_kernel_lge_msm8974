@@ -44,7 +44,16 @@ enum {
 #define MDSS_MDP_PERF_UPDATE_ALL -1
 
 #ifdef CONFIG_OLED_SUPPORT
+/*           
+                                                                      
+                                    
+ */
 #define QMC_SLIMPORT_UNDERRUN_PATCH
+/*           
+                                                         
+                                                                   
+                                 
+ */
 #define QMC_POWERONOFF_PATCH
 #endif
 #if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)

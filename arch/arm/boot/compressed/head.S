@@ -664,7 +664,7 @@ __armv7_mmu_cache_on:
 		mrc	p15, 0, r0, c1, c0, 0	@ read control reg
 		orr	r0, r0, #0x5000		@ I-cache enable, RR cache replacement
 		orr	r0, r0, #0x003c		@ write buffer
-        bic	r0, r0, #2		@ A (no unaligned access fault)
+		bic	r0, r0, #2		@ A (no unaligned access fault)
 		orr	r0, r0, #1 << 22	@ U (v6 unaligned access model)
 						@ (needed for ARM1176)
 #ifdef CONFIG_MMU

@@ -154,6 +154,10 @@ extern int mdss_dsi_clk_on;
 extern u32 dsi_irq;
 
 #ifdef CONFIG_LGE_LCD_TUNING
+/*             
+                                          
+                                   
+*/
 extern struct dsi_cmd_desc *dsi_panel_tun_cmds;
 extern int num_of_tun_cmds;
 #endif
@@ -307,6 +311,10 @@ int mdss_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 			struct dsi_cmd_desc *cmds, int rlen);
 #ifdef CONFIG_LGE_ESD_CHECK
+/*             
+                           
+                                
+*/
 void mdss_dsi_cmds_mode1(struct mdss_panel_data *pdata);
 void mdss_dsi_cmds_mode2(struct mdss_panel_data *pdata);
 #endif

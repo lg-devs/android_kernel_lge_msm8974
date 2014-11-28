@@ -47,6 +47,10 @@ static struct dsi_panel_cmds lge_ief_off_cmds;
 #endif
 
 #ifdef CONFIG_LGE_LCD_TUNING
+/*             
+                                          
+                                   
+ */
 extern int num_cmds;
 extern int tun_len;
 extern char init_buf[TUNING_REGSIZE];
@@ -57,7 +61,8 @@ static struct dsi_cmd_desc *dsi_panel_off_cmds;
 static int num_of_on_cmds;
 static int num_of_off_cmds;
 static char *on_cmds, *off_cmds;
-#endif
+
+#endif /*                       */
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
@@ -132,6 +137,14 @@ lcd_maker_id get_panel_maker_id(void)
 	return maker_id;
 }
 EXPORT_SYMBOL(get_panel_maker_id);
+/*        
+                                                      
+                                                
+ 
+                                                      
+ 
+                                                                    
+*/
 #endif
 
 #if defined(CONFIG_LGE_SUPORT_OLED_TUNING)
@@ -343,6 +356,10 @@ void mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	} else {
 		gpio_set_value((ctrl_pdata->rst_gpio), 0);
 #ifndef CONFIG_MACH_LGE
+		/*             
+                                     
+                                    
+   */
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio))
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 0);
 #endif
@@ -485,6 +502,10 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 
 	if (ctrl->on_cmds.cmd_cnt)
 #ifdef CONFIG_LGE_LCD_TUNING
+		/*           
+                                           
+                                     
+   */
 		mdss_dsi_cmds_tx(pdata, &dsi_panel_tx_buf,
 				tun_dsi_panel_on_cmds,
 				num_of_on_cmds);

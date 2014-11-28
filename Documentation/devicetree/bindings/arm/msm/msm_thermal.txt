@@ -28,7 +28,7 @@ Optional properties
 			core can be used for freq control.
 - qcom,core-limit-temp: Threshold temperature to start shutting down cores
 			in degC
-- qcom,core-temp-hysteresis: Degrees C below which the cores will be brought
+- qcom,core-temp-hysterisis: Degrees C below which the cores will be brought
 			online in sequence.
 - qcom,core-control-mask: The cpu mask that will be used to determine if a
 			core can be controlled or not. A mask of 0 indicates
@@ -38,7 +38,7 @@ Optional properties
 			core control is disabled. The difference between hotplug-temp
 			and core-limit-temp is that core-limit-temp is used during
 			early boot prior to thermal_sys being available for hotplug.
-- qcom,hotplug-temp-hysterisis: Degrees C below which thermal will not force the
+- qcom,hotplug-temp-hysteresis: Degrees C below which thermal will not force the
 			cores to be offlined. Cores can be brought online if needed.
 - qcpm,cpu-sensors:     List of type names in thermal zone device struct which maps
 			to cpu0, cpu1, cpu2, cpu3 in sequence depending on how many

@@ -65,7 +65,15 @@
 #include "internal.h"
 
 #include <trace/events/sched.h>
+/*             
+  
+                                        
+                                             
+  
+                                  
+ */
 #include "sreadahead_prof.h"
+/*             */
 
 
 int core_uses_pid;
@@ -144,8 +152,16 @@ SYSCALL_DEFINE1(uselib, const char __user *, library)
 		goto exit;
 
 	fsnotify_open(file);
-
+/*             
+  
+                                        
+                                             
+  
+                                  
+ */
 	sreadahead_prof(file, 0, 0);
+/*              */
+
 
 	error = -ENOEXEC;
 	if(file->f_op) {
@@ -788,8 +804,16 @@ struct file *open_exec(const char *name)
 		goto exit;
 
 	fsnotify_open(file);
-
+/*             
+  
+                                        
+                                             
+  
+                                  
+ */
 	sreadahead_prof(file, 0, 0);
+/*              */
+
 
 	err = deny_write_access(file);
 	if (err)

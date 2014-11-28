@@ -21,6 +21,10 @@
 #define DEV_DBG(fmt, args...)   pr_info(fmt, ##args)
 #endif
 
+/*            
+                                                                     
+                                   
+ */
 #ifdef CONFIG_SLIMPORT_ANX7808
 extern int slimport_read_edid_block(int block, uint8_t *edid_buf);
 #endif
@@ -438,6 +442,10 @@ static int hdmi_edid_read_block(struct hdmi_edid_ctrl *edid_ctrl, int block,
 		return -EINVAL;
 	}
 
+/*            
+                                                                     
+                                   
+ */
 #ifdef CONFIG_SLIMPORT_ANX7808
 		status = slimport_read_edid_block(block, edid_buf);
 #else /* QCT original */
