@@ -73,7 +73,32 @@ obj-$(CONFIG_PM8XXX_CCADC)	+= pm8xxx-ccadc.o
 obj-$(CONFIG_PM8921_BMS)	+= pm8921-bms.o
 obj-$(CONFIG_QPNP_BMS)		+= qpnp-bms.o
 obj-$(CONFIG_PM8921_CHARGER)	+= pm8921-charger.o
+ifdef CONFIG_LGE_PM
+ifdef CONFIG_MACH_MSM8974_VU3_KR
 obj-$(CONFIG_QPNP_CHARGER)	+= qpnp-charger.o
+else
+ifdef CONFIG_MACH_MSM8974_G2_KDDI
+obj-$(CONFIG_QPNP_CHARGER)	+= qpnp-charger-kddi.o
+else
+ifdef CONFIG_MACH_MSM8974_B1_KR
+obj-$(CONFIG_QPNP_CHARGER)	+= qpnp-charger_b1_kr.o
+else
+obj-$(CONFIG_QPNP_CHARGER)	+= qpnp-charger_lge_revA.o
+endif
+endif
+endif
+else
+obj-$(CONFIG_QPNP_CHARGER)	+= qpnp-charger.o
+endif
 obj-$(CONFIG_LTC4088_CHARGER)	+= ltc4088-charger.o
 obj-$(CONFIG_CHARGER_SMB347)	+= smb347-charger.o
 obj-$(CONFIG_BATTERY_BCL)	+= battery_current_limit.o
+obj-$(CONFIG_BQ51051B_CHARGER)	+= bq51051b_charger.o
+obj-$(CONFIG_BQ51053B_CHARGER)	+= bq51053b_charger.o
+obj-$(CONFIG_FTT_CHARGER_V3)	+= ftt_wireless.o
+ftt_wireless-y	+= ftt_charger_v3.o ftt_device.o ftt_sysfs.o ftt_uevent.o ftt_protocol.o
+obj-$(CONFIG_MAX17048_FUELGAUGE)+= max17048_battery.o
+obj-$(CONFIG_MAX17050_FUELGAUGE)+= max17050_battery.o
+obj-$(CONFIG_LGE_PM_BATTERY_ID_CHECKER) += lge_battery_id.o
+obj-$(CONFIG_LGE_CURRENTNOW) += currentnow.o
+obj-$(CONFIG_BQ24192_CHARGER) += bq24192_charger.o
