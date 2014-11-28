@@ -79,7 +79,6 @@ static void ecryptfs_writepage_complete(
 }
 
 #endif
-
 /**
  * ecryptfs_writepage
  * @page: Page that is locked before this call is made
@@ -93,7 +92,7 @@ static void ecryptfs_writepage_complete(
 static int ecryptfs_writepage(struct page *page, struct writeback_control *wbc)
 {
 #ifndef CONFIG_CRYPTO_DEV_KFIPS
- 	int rc;
+	int rc;
 #else
 	struct ecryptfs_page_crypt_req *page_crypt_req;
 	int rc = 0;
@@ -132,11 +131,11 @@ static int ecryptfs_writepage(struct page *page, struct writeback_control *wbc)
 		SetPageUptodate(page);
 	} else {
 #ifndef CONFIG_CRYPTO_DEV_KFIPS
-		rc = ecryptfs_encrypt_page(page);
-		if (rc) {
-            ecryptfs_printk(KERN_WARNING, "Error encrypting "
+	rc = ecryptfs_encrypt_page(page);
+	if (rc) {
+		ecryptfs_printk(KERN_WARNING, "Error encrypting "
 				"page (upper index [0x%.16lx])\n", page->index);
-            ClearPageUptodate(page);
+		ClearPageUptodate(page);
 #else
 //	rc = ecryptfs_encrypt_page(page);
 //	if (rc) {
@@ -162,14 +161,14 @@ static int ecryptfs_writepage(struct page *page, struct writeback_control *wbc)
 #endif
 	}
 #else
-        rc = ecryptfs_encrypt_page(page);
-        if (rc) {
-            ecryptfs_printk(KERN_WARNING, "Error encrypting "
-                    "page (upper index [0x%.16lx])\n", page->index);
-            ClearPageUptodate(page);
-            goto out;
-        }
-        SetPageUptodate(page);
+	rc = ecryptfs_encrypt_page(page);
+	if (rc) {
+		ecryptfs_printk(KERN_WARNING, "Error encrypting "
+				"page (upper index [0x%.16lx])\n", page->index);
+		ClearPageUptodate(page);
+		goto out;
+	}
+	SetPageUptodate(page);
 #endif
 out:
 	unlock_page(page);

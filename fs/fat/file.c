@@ -116,6 +116,7 @@ out:
 	return err;
 }
 
+/*                                                                                         */
 #ifdef CONFIG_LGE_B2B_VMWARE
 extern int _fat_fallocate(struct inode *inode, loff_t len);
 
@@ -173,6 +174,7 @@ static long fat_vmw_extend(struct file *filp, unsigned long len)
 	return _fat_fallocate(inode, off);
 }
 #endif
+/*                                                                                       */
 
 long fat_generic_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -184,10 +186,12 @@ long fat_generic_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return fat_ioctl_get_attributes(inode, user_attr);
 	case FAT_IOCTL_SET_ATTRIBUTES:
 		return fat_ioctl_set_attributes(filp, user_attr);
+/*                                                                                         */
 #ifdef CONFIG_LGE_B2B_VMWARE
 	case FAT_IOCTL_VMW_EXTEND:
 		return fat_vmw_extend(filp, arg);
 #endif
+/*                                                                                       */
 	default:
 		return -ENOTTY;	/* Inappropriate ioctl for device */
 	}

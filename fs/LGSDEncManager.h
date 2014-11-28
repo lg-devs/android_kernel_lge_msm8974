@@ -1,3 +1,5 @@
+//FEATURE_SDCARD_MEDIAEXN_SYSTEMCALL_ENCRYPTION
+
 #include <keys/user-type.h>
 #include <keys/encrypted-type.h>
 #include <linux/fs.h>
@@ -15,3 +17,4 @@
 extern int getMediaProperty(void);
 extern int ecryptfs_mediaFileSearch(const unsigned char *filename);
 extern char *ecryptfs_Extfilename(const unsigned char *filename);
+
