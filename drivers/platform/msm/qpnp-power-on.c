@@ -23,6 +23,11 @@
 #include <linux/input.h>
 #include <linux/log2.h>
 #include <linux/qpnp/power-on.h>
+#ifdef CONFIG_MACH_LGE
+#include <linux/wakelock.h>
+#endif
+
+#include <linux/zwait.h>
 
 #define PMIC_VER_8941           0x01
 #define PMIC_VERSION_REG        0x0105
@@ -181,6 +186,10 @@ static const char * const qpnp_poff_reason[] = {
 	[14] = "Triggered from OTST3 (Overtemp)",
 	[15] = "Triggered from STAGE3 (Stage 3 reset)",
 };
+
+#ifdef CONFIG_MACH_LGE
+struct wake_lock kpdpwr_irq_wake_lock;
+#endif
 
 static int
 qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
@@ -426,6 +435,9 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 		return -EINVAL;
 	}
 
+	pr_info("%s:code(%d), value(%d)\n",
+			__func__, cfg->key_code, (pon_rt_sts & pon_rt_bit));
+
 	input_report_key(pon->pon_input, cfg->key_code,
 					(pon_rt_sts & pon_rt_bit));
 	input_sync(pon->pon_input);
@@ -442,6 +454,9 @@ static irqreturn_t qpnp_kpdpwr_irq(int irq, void *_pon)
 	if (rc)
 		dev_err(&pon->spmi->dev, "Unable to send input event\n");
 
+#ifdef CONFIG_MACH_LGE
+	wake_lock_timeout(&kpdpwr_irq_wake_lock, HZ/2);
+#endif
 	return IRQ_HANDLED;
 }
 
@@ -511,6 +526,7 @@ static void bark_work_func(struct work_struct *work)
 
 	if (!(pon_rt_sts & QPNP_PON_RESIN_BARK_N_SET)) {
 		/* report the key event and enable the bark IRQ */
+		pr_info("%s:code(%d), value(%d)\n", __func__, cfg->key_code, 0);
 		input_report_key(pon->pon_input, cfg->key_code, 0);
 		input_sync(pon->pon_input);
 		enable_irq(cfg->bark_irq);
@@ -553,6 +569,8 @@ static irqreturn_t qpnp_resin_bark_irq(int irq, void *_pon)
 		dev_err(&pon->spmi->dev, "Unable to configure S2 enable\n");
 		goto err_exit;
 	}
+
+	pr_info("%s:code(%d), value(%d)\n", __func__, cfg->key_code, 1);
 
 	/* report the key event */
 	input_report_key(pon->pon_input, cfg->key_code, 1);
@@ -788,6 +806,9 @@ static int __devinit qpnp_pon_config_init(struct qpnp_pon *pon)
 	int rc = 0, i = 0;
 	struct device_node *pp = NULL;
 	struct qpnp_pon_config *cfg;
+#ifdef CONFIG_MACH_LGE
+	int disable = 0;
+#endif
 	u8 pon_ver;
 	u8 pmic_type;
 	u8 revid_rev4;
@@ -805,6 +826,12 @@ static int __devinit qpnp_pon_config_init(struct qpnp_pon *pon)
 	/* iterate through the list of pon configs */
 	while ((pp = of_get_next_child(pon->spmi->dev.of_node, pp))) {
 
+#ifdef CONFIG_MACH_LGE
+		rc = of_property_read_u32(pp, "qcom,disable", &disable);
+		if (!rc && disable)
+			continue;
+		pr_debug("%s: &pon->pon_cfg[%d]\n", __func__, i);
+#endif
 		cfg = &pon->pon_cfg[i++];
 
 		rc = of_property_read_u32(pp, "qcom,pon-type", &cfg->pon_type);
@@ -1102,6 +1129,25 @@ free_input_dev:
 	return rc;
 }
 
+#ifdef CONFIG_ZERO_WAIT
+static DEFINE_ZW_PWRKEY_INFO(zw_pwrkey, ZW_PWRKEY_UNITE_IRQ);
+
+static inline int pwrkey_is_pressed(void *ptr)
+{
+	int err;
+	struct qpnp_pon *pon = (struct qpnp_pon *)ptr;
+	u8 pon_rt_sts = 0;
+
+	/* check the RT status to get the current status of the line */
+	err = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
+				QPNP_PON_RT_STS(pon->base), &pon_rt_sts, 1);
+	if (err)
+		return err;
+
+	return (pon_rt_sts & QPNP_PON_KPDPWR_N_SET);
+}
+#endif
+
 static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 {
 	struct qpnp_pon *pon;
@@ -1113,6 +1159,9 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 	const char *s3_src;
 	u8 s3_src_reg;
 	u16 poff_sts = 0;
+#ifdef CONFIG_MACH_LGE
+	int disable = 0;
+#endif
 
 	pon = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_pon),
 							GFP_KERNEL);
@@ -1132,9 +1181,20 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 
 	pon->spmi = spmi;
 
+#ifdef CONFIG_MACH_LGE
+	/* get the total number of pon configurations */
+	while ((itr = of_get_next_child(spmi->dev.of_node, itr))) {
+		rc = of_property_read_u32(itr, "qcom,disable", &disable);
+		if (rc || disable == 0)
+			pon->num_pon_config++;
+	}
+	pr_debug("%s: num_pon_config %d\n", __func__, pon->num_pon_config);
+#else
 	/* get the total number of pon configurations */
 	while ((itr = of_get_next_child(spmi->dev.of_node, itr)))
 		pon->num_pon_config++;
+#endif
+
 
 	if (!pon->num_pon_config) {
 		/* No PON config., do not register the driver */
@@ -1279,6 +1339,23 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
+#ifdef CONFIG_MACH_LGE
+	wake_lock_init(&kpdpwr_irq_wake_lock, WAKE_LOCK_SUSPEND, "kpdpwr_irq");
+#endif
+
+#ifdef CONFIG_ZERO_WAIT
+	zw_pwrkey.check_func = pwrkey_is_pressed;
+	zw_pwrkey.func_param = (void *)pon;
+	zw_pwrkey.input = pon->pon_input;
+	zw_pwrkey.wdev = &spmi->dev;
+	zw_pwrkey.code = pon->pon_cfg[PON_KPDPWR].key_code;
+	zw_pwrkey.state_irq = pon->pon_cfg[PON_KPDPWR].state_irq;
+	zw_pwrkey.bark_irq = pon->pon_cfg[PON_KPDPWR].bark_irq;
+	zw_pwrkey.state_irq_handler = qpnp_kpdpwr_irq;
+
+	zw_pwrkey_info_register(&zw_pwrkey);
+#endif
+
 	return rc;
 }
 
@@ -1286,7 +1363,14 @@ static int qpnp_pon_remove(struct spmi_device *spmi)
 {
 	struct qpnp_pon *pon = dev_get_drvdata(&spmi->dev);
 
+#ifdef CONFIG_ZERO_WAIT
+	zw_pwrkey_info_unregister();
+#endif
+
 	cancel_delayed_work_sync(&pon->bark_work);
+#ifdef CONFIG_MACH_LGE
+	wake_lock_destroy(&kpdpwr_irq_wake_lock);
+#endif
 
 	if (pon->pon_input)
 		input_unregister_device(pon->pon_input);
