@@ -3441,7 +3441,9 @@ restart:
 
 			sock_hold(sk);
 			spin_unlock_bh(lock);
-
+/*                                                                              */
+			lock_sock(sk);
+/*                                                                            */
 			local_bh_disable();
 			bh_lock_sock(sk);
 			sk->sk_err = ETIMEDOUT;
@@ -3450,6 +3452,9 @@ restart:
 			tcp_done(sk);
 			bh_unlock_sock(sk);
 			local_bh_enable();
+/*                                                                              */
+			release_sock(sk);
+/*                                                                            */
 			sock_put(sk);
 
 			goto restart;
