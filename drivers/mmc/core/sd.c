@@ -19,6 +19,10 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/sd.h>
 #include <linux/pm_runtime.h>
+#ifdef CONFIG_MACH_MSM8974_B1_KR
+#include <mach/board_lge.h>
+#endif
+
 
 #include "core.h"
 #include "bus.h"
@@ -1014,6 +1018,22 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
 
+	#ifdef CONFIG_MACH_LGE
+	#ifndef CONFIG_MACH_MSM8974_B1_KR
+	if (host->index == 2 && !mmc_cd_get_status(host)) {
+		printk(KERN_INFO "[LGE][MMC][%-18s( )] sd-no-exist. skip next\n", __func__);
+		err = -ENOMEDIUM;
+		return err;
+	}
+	#else
+	if (host->index == 1 && !mmc_cd_get_status(host)) {
+			printk(KERN_INFO "[LGE][MMC][%-18s( )] sd-no-exist. skip next\n", __func__);
+			err = -ENOMEDIUM;
+			return err;
+	}
+	#endif
+	#endif
+
 	/* The initialization should be done at 3.3 V I/O voltage. */
 	mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_330, 0);
 
@@ -1145,7 +1165,15 @@ static void mmc_sd_remove(struct mmc_host *host)
  */
 static int mmc_sd_alive(struct mmc_host *host)
 {
+#ifdef CONFIG_MACH_LGE
+	/*                                      
+                                                                    
+                                                                                              
+  */
+	return !mmc_cd_get_status(host);
+#else
 	return mmc_send_status(host->card, NULL);
+#endif
 }
 
 /*
@@ -1155,7 +1183,12 @@ static void mmc_sd_detect(struct mmc_host *host)
 {
 	int err = 0;
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
-        int retries = 5;
+#if !defined (CONFIG_MACH_LGE) || defined(CONFIG_MACH_MSM8974_B1_KR)
+	/*                                      
+                              
+  */
+	int retries = 5;
+#endif
 #endif
 
 	BUG_ON(!host);
@@ -1167,6 +1200,20 @@ static void mmc_sd_detect(struct mmc_host *host)
 	/*
 	 * Just check if our card has been removed.
 	 */
+
+#if defined (CONFIG_MACH_LGE) && !defined(CONFIG_MACH_MSM8974_B1_KR)
+	/*                                      
+                                                                    
+                                                                                              
+  */
+	if (!mmc_cd_get_status(host)) {
+		err = _mmc_detect_card_removed(host);
+		printk(KERN_ERR "%s(%s): Unable to re-detect card (%d)\n",
+		       __func__, mmc_hostname(host), err);
+	}
+#else
+	if ((HW_REV_B <= lge_get_board_revno())&&(HW_REV_1_0 > lge_get_board_revno()))
+	{
 #ifdef CONFIG_MMC_PARANOID_SD_INIT
 	while(retries) {
 		err = mmc_send_status(host->card, NULL);
@@ -1180,11 +1227,24 @@ static void mmc_sd_detect(struct mmc_host *host)
 	if (!retries) {
 		printk(KERN_ERR "%s(%s): Unable to re-detect card (%d)\n",
 		       __func__, mmc_hostname(host), err);
+#if !defined (CONFIG_MACH_MSM8974_B1_KR)
 		err = _mmc_detect_card_removed(host);
+#endif
 	}
 #else
 	err = _mmc_detect_card_removed(host);
 #endif
+	}
+	else
+	{
+		if (!mmc_cd_get_status(host))
+		{
+			err = _mmc_detect_card_removed(host);
+			printk(KERN_ERR "%s(%s): Unable to re-detect card (%d)\n",__func__, mmc_hostname(host), err);
+		}
+	}
+#endif
+
 	mmc_release_host(host);
 
 	/*
@@ -1248,6 +1308,17 @@ static int mmc_sd_resume(struct mmc_host *host)
 	retries = 5;
 	while (retries) {
 		err = mmc_sd_init_card(host, host->ocr, host->card);
+
+		#ifdef CONFIG_MACH_LGE
+			/*           
+                              
+                              
+   */
+			if (err == -ENOMEDIUM) {
+				printk(KERN_INFO "[LGE][MMC][%-18s( )] error:ENOMEDIUM\n", __func__);
+				break;
+			}
+		#endif
 
 		if (err) {
 			printk(KERN_ERR "%s: Re-init card rc = %d (retries = %d)\n",
@@ -1405,6 +1476,19 @@ int mmc_attach_sd(struct mmc_host *host)
 	 */
 	while (retries && !host->rescan_disable) {
 		err = mmc_sd_init_card(host, host->ocr, NULL);
+
+		#ifdef CONFIG_MACH_LGE
+		/*           
+                             
+                             
+  */
+		if (err == -ENOMEDIUM) {
+			printk(KERN_INFO "[LGE][MMC][%-18s( )] error:ENOMEDIUM\n", __func__);
+			retries = 0;
+			break;
+		}
+		#endif
+
 		if (err) {
 			retries--;
 			mmc_power_off(host);
