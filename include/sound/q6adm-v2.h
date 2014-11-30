@@ -62,7 +62,10 @@ int adm_connect_afe_port(int mode, int session_id, int port_id);
 
 void adm_ec_ref_rx_id(int  port_id);
 
+#ifdef CONFIG_RTAC
 int adm_get_copp_id(int port_id);
+int adm_get_lowlatency_copp_id(int port_id);
+#endif
 
 int adm_get_lowlatency_copp_id(int port_id);
 

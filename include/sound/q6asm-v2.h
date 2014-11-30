@@ -84,9 +84,6 @@
 #define SESSION_MAX		0x08
 #define ASM_CONTROL_SESSION	0x0F
 
-#define ASM_SHIFT_GAPLESS_MODE_FLAG	31
-#define ASM_SHIFT_LAST_BUFFER_FLAG	30
-
 /* payload structure bytes */
 #define READDONE_IDX_STATUS 0
 #define READDONE_IDX_BUFADD_LSW 1
@@ -137,7 +134,6 @@ struct audio_aio_write_param {
 	uint32_t      msw_ts;
 	uint32_t      flags;
 	uint32_t      metadata_len;
-	uint32_t      last_buffer;
 };
 
 struct audio_aio_read_param {
@@ -171,7 +167,6 @@ struct audio_client {
 	uint64_t	       time_stamp;
 	struct apr_svc         *apr;
 	struct apr_svc         *mmap_apr;
-	struct apr_svc         *apr2;
 	struct mutex	       cmd_lock;
 	/* idx:1 out port, 0: in port*/
 	struct audio_port_data port[2];
@@ -179,7 +174,6 @@ struct audio_client {
 	wait_queue_head_t      time_wait;
 	wait_queue_head_t      mem_wait;
 	int                    perf_mode;
-	int					   stream_id;
 	/* audio cache operations fptr*/
 	int (*fptr_cache_ops)(struct audio_buffer *abuff, int cache_op);
 	atomic_t               unmap_cb_success;
@@ -215,10 +209,6 @@ int q6asm_open_write(struct audio_client *ac, uint32_t format
 
 int q6asm_open_write_v2(struct audio_client *ac, uint32_t format,
 			uint16_t bits_per_sample);
-
-int q6asm_stream_open_write_v2(struct audio_client *ac, uint32_t format,
-				uint16_t bits_per_sample, int32_t stream_id,
-				bool is_gapless_mode);
 
 int q6asm_open_read_write(struct audio_client *ac,
 			uint32_t rd_format,
@@ -259,21 +249,11 @@ int q6asm_run(struct audio_client *ac, uint32_t flags,
 int q6asm_run_nowait(struct audio_client *ac, uint32_t flags,
 		uint32_t msw_ts, uint32_t lsw_ts);
 
-int q6asm_stream_run_nowait(struct audio_client *ac, uint32_t flags,
-		uint32_t msw_ts, uint32_t lsw_ts, uint32_t stream_id);
-
 int q6asm_reg_tx_overflow(struct audio_client *ac, uint16_t enable);
-
-int q6asm_reg_rx_underflow(struct audio_client *ac, uint16_t enable);
 
 int q6asm_cmd(struct audio_client *ac, int cmd);
 
-int q6asm_stream_cmd(struct audio_client *ac, int cmd, uint32_t stream_id);
-
 int q6asm_cmd_nowait(struct audio_client *ac, int cmd);
-
-int q6asm_stream_cmd_nowait(struct audio_client *ac, int cmd,
-			    uint32_t stream_id);
 
 void *q6asm_is_cpu_buf_avail(int dir, struct audio_client *ac,
 				uint32_t *size, uint32_t *idx);
@@ -346,9 +326,6 @@ int q6asm_media_format_block_multi_ch_pcm_v2(
 int q6asm_media_format_block_aac(struct audio_client *ac,
 			struct asm_aac_cfg *cfg);
 
-int q6asm_stream_media_format_block_aac(struct audio_client *ac,
-			struct asm_aac_cfg *cfg, int stream_id);
-
 int q6asm_media_format_block_multi_aac(struct audio_client *ac,
 			struct asm_aac_cfg *cfg);
 
@@ -398,13 +375,5 @@ int q6asm_get_apr_service_id(int session_id);
 /* Common format block without any payload
 */
 int q6asm_media_format_block(struct audio_client *ac, uint32_t format);
-
-/* Send the meta data to remove initial and trailing silence */
-int q6asm_send_meta_data(struct audio_client *ac, uint32_t initial_samples,
-		uint32_t trailing_samples);
-
-/* Send the stream meta data to remove initial and trailing silence */
-int q6asm_stream_send_meta_data(struct audio_client *ac, uint32_t stream_id,
-		uint32_t initial_samples, uint32_t trailing_samples);
 
 #endif /* __Q6_ASM_H__ */

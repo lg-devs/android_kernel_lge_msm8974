@@ -9,7 +9,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
@@ -858,7 +857,6 @@ static void send_adm_cal(int port_id, int path, int perf_mode)
 
 		if (this_adm.mem_addr_audproc[acdb_path].cal_paddr != 0)
 			adm_memory_unmap_regions(port_id);
-
 		result = adm_memory_map_regions(port_id, &aud_cal.cal_paddr,
 						0, &size, 1);
 		if (result < 0) {
@@ -1119,8 +1117,9 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 	int index;
 	int tmp_port = q6audio_get_port_id(port_id);
 
-	pr_debug("%s: port %#x path:%d rate:%d mode:%d perf_mode:%d\n",
-		 __func__, port_id, path, rate, channel_mode, perf_mode);
+	pr_debug("%s: port %#x path:%d rate:%d mode:%d perf_mode:%d bps: %d\n",
+		 __func__, port_id, path, rate, channel_mode,\
+		 perf_mode, bits_per_sample);
 
 	port_id = q6audio_convert_virtual_to_portid(port_id);
 
@@ -1194,6 +1193,9 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 		if (perf_mode == ULTRA_LOW_LATENCY_PCM_MODE) {
 			open.topology_id = NULL_COPP_TOPOLOGY;
 			rate = ULL_SUPPORTED_SAMPLE_RATE;
+#ifdef CONFIG_HIFI_SOUND
+			bits_per_sample = 16;
+#endif
 			if(channel_mode > ULL_MAX_SUPPORTED_CHANNEL)
 				channel_mode = ULL_MAX_SUPPORTED_CHANNEL;
 		} else if (perf_mode == LOW_LATENCY_PCM_MODE) {

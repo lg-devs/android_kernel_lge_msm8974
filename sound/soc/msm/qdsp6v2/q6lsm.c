@@ -651,6 +651,7 @@ static struct lsm_client *q6lsm_get_lsm_client(int session_id)
 	else
 		client = lsm_session[session_id];
 	spin_unlock_irqrestore(&lsm_session_lock, flags);
+
 done:
 	return client;
 }
@@ -748,6 +749,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 		if (IS_ERR_OR_NULL(client->sound_model.client)) {
 			pr_err("%s: ION create client for AUDIO failed\n",
 			       __func__);
+			mutex_unlock(&client->cmd_lock);
 			goto fail;
 		}
 		client->sound_model.handle =
@@ -766,6 +768,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 		if (rc) {
 			pr_err("%s: ION get physical mem failed, rc%d\n",
 			       __func__, rc);
+			mutex_unlock(&client->cmd_lock);
 			goto fail;
 		}
 
@@ -774,6 +777,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 				   client->sound_model.handle);
 		if (IS_ERR_OR_NULL(client->sound_model.data)) {
 			pr_err("%s: ION memory mapping failed\n", __func__);
+			mutex_unlock(&client->cmd_lock);
 			goto fail;
 		}
 		memset(client->sound_model.data, 0, len);

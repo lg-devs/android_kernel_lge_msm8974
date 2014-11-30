@@ -1444,6 +1444,7 @@ int voc_set_rx_vol_step(uint32_t session_id, uint32_t dir, uint32_t vol_step,
 			uint32_t ramp_duration);
 int voc_set_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute,
 		    uint32_t ramp_duration);
+int voc_set_phonememo_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute);
 int voc_set_device_mute(uint32_t session_id, uint32_t dir, uint32_t mute,
 			uint32_t ramp_duration);
 int voc_get_rx_device_mute(uint32_t session_id);
@@ -1456,6 +1457,7 @@ int voc_alloc_voip_shared_memory(void);
 int is_voc_initialized(void);
 int voc_register_vocproc_vol_table(void);
 int voc_deregister_vocproc_vol_table(void);
+int voice_unmap_cal_blocks(void);
 
 int voc_unmap_cal_blocks(void);
 int voc_map_rtac_block(struct rtac_cal_block_data *cal_block);
