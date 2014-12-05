@@ -616,11 +616,11 @@ static void __mdss_dsi_ctrl_setup(struct mdss_panel_data *pdata)
 	pinfo = &pdata->panel_info;
 
 #ifdef CONFIG_MACH_LGE
-	ret = mdss_dsi_panel_power_on(pdata, 1);
+	/* ret = mdss_dsi_panel_power_on(pdata, 1);
 	if (ret) {
 		pr_err("%s: Panel power on failed\n", __func__);
 		return ret;
-	}
+	} */
 
 	clk_rate = pdata->panel_info.clk_rate;
 	clk_rate = min(clk_rate, pdata->panel_info.clk_max);

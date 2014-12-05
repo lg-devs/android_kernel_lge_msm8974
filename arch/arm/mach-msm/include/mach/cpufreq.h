@@ -45,7 +45,7 @@ extern unsigned long msm_cpufreq_get_bw(void)
 #define MSM_CPUFREQ_NO_LIMIT 0xFFFFFFFF
 
 #ifdef CONFIG_CPU_FREQ_MSM
-
+*/
 /**
  * msm_cpufreq_set_freq_limit() - Set max/min freq limits on cpu
  *
@@ -73,4 +73,4 @@ void set_speed_pvs_bin(int speed, int pvs);
 void get_speed_bin(int *speed);
 void get_pvs_bin(int *pvs);
 
-#endif /* __ARCH_ARM_MACH_MSM_MACH_CPUFREQ_H */
+#endif */ /* __ARCH_ARM_MACH_MSM_MACH_CPUFREQ_H */

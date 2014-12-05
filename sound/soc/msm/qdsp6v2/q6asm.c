@@ -903,8 +903,8 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 fail_mmap:
 	apr_deregister(ac->apr);
     //apr_deregister(ac->apr2);
-fail_apr2:
-	apr_deregister(ac->apr);
+//fail_apr2:
+	//apr_deregister(ac->apr);
 fail_apr1:
 	q6asm_session_free(ac);
 fail_session:
