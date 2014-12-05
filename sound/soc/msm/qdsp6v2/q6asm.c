@@ -857,7 +857,6 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 	ac->perf_mode = LEGACY_PCM_MODE;
 	ac->fptr_cache_ops = NULL;
 	/* DSP expects stream id from 1 */
-	ac->stream_id = 1;
 	ac->apr = apr_register("ADSP", "ASM", \
 				(apr_fn)q6asm_callback,\
 				((ac->session) << 8 | 0x0001),\
@@ -902,7 +901,8 @@ struct audio_client *q6asm_audio_client_alloc(app_cb cb, void *priv)
 
 	return ac;
 fail_mmap:
-	apr_deregister(ac->apr2);
+	apr_deregister(ac->apr);
+    //apr_deregister(ac->apr2);
 fail_apr2:
 	apr_deregister(ac->apr);
 fail_apr1:
