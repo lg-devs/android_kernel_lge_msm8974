@@ -164,7 +164,6 @@ static void __update_sensor_thresholds(struct sensor_info *sensor)
 		sensor->tz->ops->get_trip_temp(sensor->tz,
 			THERMAL_TRIP_CONFIGURABLE_HI, &sensor->threshold_max);
 	}
->>>>>>> 9759255... thermal: Add LG wakelocks and thermal configuration
 
 	sensor->tz->ops->get_temp(sensor->tz, &curr_temp);
 	list_for_each_entry_safe(pos, var, &sensor->threshold_list, list) {

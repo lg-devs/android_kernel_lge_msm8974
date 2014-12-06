@@ -350,13 +350,14 @@ static void compr_event_handler(uint32_t opcode,
 	case ASM_DATA_EVENT_RENDERED_EOS:
 		pr_debug("%s: ASM_DATA_CMDRSP_EOS token 0x%x,stream id %d\n",
 			  __func__, token, STREAM_ID_FROM_TOKEN(token));
-		stream_id = STREAM_ID_FROM_TOKEN(token);
+		//stream_id = STREAM_ID_FROM_TOKEN(token);
 		if (atomic_read(&prtd->eos)) {
 			pr_debug("ASM_DATA_CMDRSP_EOS wake up\n");
 			prtd->cmd_ack = 1;
 			wake_up(&prtd->eos_wait);
 			atomic_set(&prtd->eos, 0);
 		}
+		/*
 		if (prtd->gapless_state.set_next_stream_id &&
 			prtd->gapless_state.stream_opened[stream_index]) {
 			pr_debug("%s: CMD_CLOSE stream_id %d\n",
@@ -368,6 +369,7 @@ static void compr_event_handler(uint32_t opcode,
 		}
 		if (prtd->gapless_state.gapless_transition)
 			prtd->gapless_state.gapless_transition = 0;
+		*/
 		spin_unlock(&prtd->lock);
 		break;
 	case ASM_DATA_EVENT_SR_CM_CHANGE_NOTIFY:
@@ -466,6 +468,17 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream)
 	uint16_t bit_width = 16;
 
 	switch (prtd->codec) {
+#ifdef CONFIG_HIFI_SOUND
+	case FORMAT_LINEAR_PCM:
+		pr_err("%s :FORMAT_LINEAR_PCM SR %d CH %d bps %d\n", __func__,
+			prtd->sample_rate, prtd->num_channels,prtd->bits_per_sample);
+		ret = q6asm_media_format_block_pcm_format_support(
+			prtd->audio_client, prtd->sample_rate,
+			prtd->num_channels, prtd->bits_per_sample);
+		if (ret < 0)
+		    pr_debug("%s: CMD Format block failed %d \n", __func__, ret);
+		 break;
+#else
 	case FORMAT_LINEAR_PCM:
 		pr_debug("SND_AUDIOCODEC_PCM\n");
 		if (prtd->codec_param.codec.format == SNDRV_PCM_FORMAT_S24_LE)
@@ -479,6 +492,7 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream)
 			pr_err("%s: CMD Format block failed\n", __func__);
 
 		break;
+#endif
 	case FORMAT_MP3:
 		/* no media format block needed */
 		break;
@@ -501,17 +515,6 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream)
 		break;
 	case FORMAT_EAC3:
 		break;
-#ifdef CONFIG_HIFI_SOUND
-	case FORMAT_LINEAR_PCM:
-		pr_err("%s :FORMAT_LINEAR_PCM SR %d CH %d bps %d\n", __func__,
-			prtd->sample_rate, prtd->num_channels,prtd->bits_per_sample);
-		ret = q6asm_media_format_block_pcm_format_support(
-			prtd->audio_client, prtd->sample_rate,
-			prtd->num_channels, prtd->bits_per_sample);
-		if (ret < 0)
-		    pr_debug("%s: CMD Format block failed %d \n", __func__, ret);
-		 break;
-#endif
 	default:
 		pr_debug("%s, unsupported format, skip", __func__);
 		break;
@@ -529,19 +532,19 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 #endif
 	int dir = IN, ret = 0;
 	uint32_t stream_index;
-	struct asm_softpause_params softpause = {
+	/* struct asm_softpause_params softpause = {
 		.enable = SOFT_PAUSE_ENABLE,
 		.period = SOFT_PAUSE_PERIOD,
 		.step = SOFT_PAUSE_STEP,
 		.rampingcurve = SOFT_PAUSE_CURVE_LINEAR,
-	};
+	}; */
 	struct asm_softvolume_params softvol = {
 		.period = SOFT_VOLUME_PERIOD,
 		.step = SOFT_VOLUME_STEP,
 		.rampingcurve = SOFT_VOLUME_CURVE_LINEAR,
 	};
 
-	pr_debug("%s: stream_id %d\n", __func__, ac->stream_id);
+	pr_debug("%s: stream_id %d\n", __func__);
 #ifdef CONFIG_HIFI_SOUND
 	ret = q6asm_open_write_v2(prtd->audio_client,
 				prtd->codec, prtd->bits_per_sample);
@@ -552,12 +555,6 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 	if (ret < 0) {
 		pr_err("%s: Session out open failed\n", __func__);
 		 return -ENOMEM;
-	}
-
-	stream_index = STREAM_ARRAY_INDEX(ac->stream_id);
-	if (stream_index >= MAX_NUMBER_OF_STREAMS || stream_index < 0) {
-		pr_err("%s: Invalid stream index:%d", __func__, stream_index);
-		return -EINVAL;
 	}
 
 	pr_debug("%s be_id %d\n", __func__, soc_prtd->dai_link->be_id);
