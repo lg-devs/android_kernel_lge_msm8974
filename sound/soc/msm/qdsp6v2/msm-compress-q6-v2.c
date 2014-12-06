@@ -297,7 +297,7 @@ static void compr_event_handler(uint32_t opcode,
 	uint32_t chan_mode = 0;
 	uint32_t sample_rate = 0;
 	int bytes_available;
-	uint32_t stream_index;
+	//uint32_t stream_index;
 
 	pr_debug("%s opcode =%08x\n", __func__, opcode);
 	switch (opcode) {
