@@ -497,16 +497,12 @@ static int msm_serial_loopback_enable_set(void *data, u64 val)
 	unsigned long flags;
 	int ret = 0;
 
-	ret = msm_hs_clock_vote(msm_uport);
+	ret = clk_prepare_enable(msm_uport->clk);
 	if (ret) {
 		printk(KERN_ERR "%s: Error could not turn on UART clk\n",
 				__func__);
 		return ret;
 	}
-
-	clk_prepare_enable(msm_uport->clk);
-	if (msm_uport->pclk)
-		clk_prepare_enable(msm_uport->pclk);
 
 	if (val) {
 		spin_lock_irqsave(&uport->lock, flags);
@@ -539,11 +535,20 @@ static int msm_serial_loopback_enable_get(void *data, u64 *val)
 	unsigned long flags;
 	int ret = 0;
 
-	ret = msm_hs_clock_vote(msm_uport);
+	ret = clk_prepare_enable(msm_uport->clk);
 	if (ret) {
 		printk(KERN_ERR "%s: Error could not turn on UART clk\n",
 				__func__);
 		return ret;
+	}
+	if (msm_uport->pclk) {
+		ret = clk_prepare_enable(msm_uport->pclk);
+		if (ret) {
+			clk_disable_unprepare(msm_uport->clk);
+			dev_err(uport->dev,
+				"Error could not turn on UART pclk\n");
+			return ret;
+		}
 	}
 
 	clk_prepare_enable(msm_uport->clk);
@@ -950,7 +955,7 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	 * the clocks are off and the client has not had a chance
 	 * to turn them on. Make sure that they are on
 	 */
-	ret = msm_hs_clock_vote(msm_uport);
+	ret = clk_prepare_enable(msm_uport->clk);
 	if (ret) {
 		printk(KERN_ERR "%s: Error could not turn on UART clk\n",
 				__func__);
@@ -1092,11 +1097,11 @@ static void msm_hs_set_termios(struct uart_port *uport,
 	mb();
 	mutex_unlock(&msm_uport->clk_mutex);
 
-	msm_hs_clock_unvote(msm_uport);
+	clk_disable_unprepare(msm_uport->clk);
 
 	MSM_HS_DBG("Exit %s\n", __func__);
 	dump_uart_hs_registers(msm_uport);
-	msm_hs_clock_unvote(msm_uport);
+	clk_disable_unprepare(msm_uport->clk);
 }
 
 /*
@@ -1111,13 +1116,6 @@ unsigned int msm_hs_tx_empty(struct uart_port *uport)
 	if (msm_uport->clk_state == MSM_HS_CLK_PORT_OFF) {
 		MSM_HS_ERR("%s:UART port is closed\n", __func__);
 		return -EPERM;
-	}
-
-	ret = msm_hs_clock_vote(msm_uport);
-	if (ret) {
-		printk(KERN_ERR "%s: Error could not turn on UART clk\n",
-				__func__);
-		return ret;
 	}
 
 	data = msm_hs_read(uport, UART_DM_SR);
@@ -1155,9 +1153,9 @@ static void hsuart_disconnect_rx_endpoint_work(struct work_struct *w)
 					pdev->dev.platform_data;
 	int ret = 0;
 
-	msm_hs_clock_vote(msm_uport);
+	clk_prepare_enable(msm_uport->clk);
 	ret = sps_rx_disconnect(sps_pipe_handle);
-	msm_hs_clock_unvote(msm_uport);
+	clk_disable_unprepare(msm_uport->clk);
 
 	if (ret)
 		MSM_HS_ERR("%s(): sps_disconnect failed\n", __func__);
@@ -1709,7 +1707,7 @@ void msm_hs_set_mctrl(struct uart_port *uport,
 	spin_lock_irqsave(&uport->lock, flags);
 	msm_hs_set_mctrl_locked(uport, mctrl);
 	spin_unlock_irqrestore(&uport->lock, flags);
-	msm_hs_clock_unvote(msm_uport);
+	clk_disable_unprepare(msm_uport->clk);
 }
 EXPORT_SYMBOL(msm_hs_set_mctrl);
 
@@ -1751,7 +1749,7 @@ static void msm_hs_break_ctl(struct uart_port *uport, int ctl)
 	mb();
 	spin_unlock_irqrestore(&uport->lock, flags);
 
-	msm_hs_clock_unvote(msm_uport);
+	clk_disable_unprepare(msm_uport->clk);
 }
 
 static void msm_hs_config_port(struct uart_port *uport, int cfg_flags)
@@ -3008,16 +3006,12 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 		goto destroy_mutex;
 	}
 
-	ret = msm_hs_clock_vote(msm_uport);
+	ret = clk_prepare_enable(msm_uport->clk);
 	if (ret) {
 		printk(KERN_ERR "%s: Error could not turn on UART clk\n",
 				__func__);
 		goto destroy_mutex;
 	}
-
-	clk_prepare_enable(msm_uport->clk);
-	if (msm_uport->pclk)
-		clk_prepare_enable(msm_uport->pclk);
 
 	ret = uartdm_init_port(uport);
 	if (unlikely(ret)) {
@@ -3170,7 +3164,7 @@ static void msm_hs_shutdown(struct uart_port *uport)
 	cancel_delayed_work_sync(&msm_uport->rx.flip_insert_work);
 	flush_workqueue(msm_uport->hsuart_wq);
 
-	msm_hs_clock_vote(msm_uport);
+	clk_prepare_enable(msm_uport->clk);
 	mutex_lock(&msm_uport->clk_mutex);
 	/* BAM Disconnect for TX */
 	ret = sps_disconnect(sps_pipe_handle);
@@ -3194,17 +3188,12 @@ static void msm_hs_shutdown(struct uart_port *uport)
 
 	msm_uport->rx.buffer_pending = NONE_PENDING;
 	MSM_HS_DBG("%s(): tx, rx events complete", __func__);
-	msm_hs_clock_unvote(msm_uport);
+	clk_disable_unprepare(msm_uport->clk);
 	if (msm_uport->clk_state != MSM_HS_CLK_OFF) {
 		/* to balance clk_state */
-<<<<<<< HEAD
-		msm_hs_clock_unvote(msm_uport);
-=======
 		clk_disable_unprepare(msm_uport->clk);
 		if (msm_uport->pclk)
 			clk_disable_unprepare(msm_uport->pclk);
-		wake_unlock(&msm_uport->dma_wake_lock);
->>>>>>> 6ed55db... Reset G2 changes to msm_serial_hs
 	}
 
 	pm_runtime_disable(uport->dev);
