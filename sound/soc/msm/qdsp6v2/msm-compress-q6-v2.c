@@ -465,7 +465,7 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream)
 	struct msm_compr_audio *prtd = runtime->private_data;
 	struct asm_aac_cfg aac_cfg;
 	int ret = 0;
-	uint16_t bit_width = 16;
+	//uint16_t bit_width = 16;
 
 	switch (prtd->codec) {
 #ifdef CONFIG_HIFI_SOUND

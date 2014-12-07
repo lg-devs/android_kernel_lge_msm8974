@@ -4357,12 +4357,14 @@ retry:
 		msmsdcc_dump_sdcc_state(host);
 		rc = -EAGAIN;
 
+/*
 #if defined(CONFIG_WIFI_CONTROL_FUNC)
 		if (host->plat->wifi_control_func) {
 			rc = 0;
 		}
 #endif
 	}
+*/
 
 kfree:
 	kfree(data_buf);

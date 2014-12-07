@@ -1113,10 +1113,10 @@ unsigned int msm_hs_tx_empty(struct uart_port *uport)
 	unsigned int data;
 	unsigned int ret = 0;
 
-	if (msm_uport->clk_state == MSM_HS_CLK_PORT_OFF) {
+	/*if (msm_uport->clk_state == MSM_HS_CLK_PORT_OFF) {
 		MSM_HS_ERR("%s:UART port is closed\n", __func__);
 		return -EPERM;
-	}
+	}*/
 
 	data = msm_hs_read(uport, UART_DM_SR);
 	MSM_HS_DBG("%s(): SR Reg Read 0x%x", __func__, data);
@@ -1671,10 +1671,10 @@ void msm_hs_set_mctrl_locked(struct uart_port *uport,
 	unsigned int set_rts;
 	unsigned int data;
 
-	if (msm_uport->clk_state != MSM_HS_CLK_ON) {
+	/*if (msm_uport->clk_state != MSM_HS_CLK_ON) {
 		MSM_HS_WARN("%s:Failed.Clocks are OFF\n", __func__);
 		return;
-	}
+	}*/
 
 	/* RTS is active low */
 	set_rts = TIOCM_RTS & mctrl ? 0 : 1;
