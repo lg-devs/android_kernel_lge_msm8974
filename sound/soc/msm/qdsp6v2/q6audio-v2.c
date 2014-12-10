@@ -71,12 +71,11 @@ int q6audio_get_port_index(u16 port_id)
 		return IDX_AFE_PORT_ID_SECONDARY_MI2S_RX;
 	case AFE_PORT_ID_SECONDARY_MI2S_TX:
 		return IDX_AFE_PORT_ID_SECONDARY_MI2S_TX;
-    case AFE_PORT_ID_TERTIARY_MI2S_RX:
-	    return IDX_AFE_PORT_ID_TERTIARY_MI2S_RX;
+	case AFE_PORT_ID_TERTIARY_MI2S_RX:
+		return IDX_AFE_PORT_ID_TERTIARY_MI2S_RX;
 	case AFE_PORT_ID_TERTIARY_MI2S_TX:
-	    return IDX_AFE_PORT_ID_TERTIARY_MI2S_TX;
-	case GLOBAL_CFG:
-		return IDX_GLOBAL_CFG;
+		return IDX_AFE_PORT_ID_TERTIARY_MI2S_TX;
+
 	default: return -EINVAL;
 	}
 }
@@ -195,10 +194,9 @@ int q6audio_get_port_id(u16 port_id)
 	case AFE_PORT_ID_SECONDARY_MI2S_TX:
 			     return AFE_PORT_ID_SECONDARY_MI2S_TX;
 	case AFE_PORT_ID_TERTIARY_MI2S_RX:
-				 return AFE_PORT_ID_TERTIARY_MI2S_RX;
+			     return AFE_PORT_ID_TERTIARY_MI2S_RX;
 	case AFE_PORT_ID_TERTIARY_MI2S_TX:
-				 return AFE_PORT_ID_TERTIARY_MI2S_TX;
-	case GLOBAL_CFG: return GLOBAL_CFG;
+			     return AFE_PORT_ID_TERTIARY_MI2S_TX;
 	default:
 		pr_warn("%s: Invalid port_id %d\n", __func__, port_id);
 		return -EINVAL;
@@ -300,11 +298,6 @@ int q6audio_validate_port(u16 port_id)
 	case AFE_PORT_ID_QUATERNARY_MI2S_TX:
 	case AFE_PORT_ID_SECONDARY_MI2S_RX:
 	case AFE_PORT_ID_SECONDARY_MI2S_TX:
-#ifdef CONFIG_SND_FM_RADIO
-	case AFE_PORT_ID_TERTIARY_MI2S_RX:
-	case AFE_PORT_ID_TERTIARY_MI2S_TX:
-#endif
-	case GLOBAL_CFG:
 	{
 		ret = 0;
 		break;
