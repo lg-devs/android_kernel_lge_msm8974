@@ -2850,15 +2850,15 @@ deregister_bam:
 	return rc;
 }
 
-/*                                                                    */
-/*                                                                 */
-#ifdef CONFIG_LGE_BLUESLEEP
+/*
 struct uart_port* msm_hs_get_bt_uport(unsigned int line)
 {
 	return &q_uart_port[line].uport;
 }
 EXPORT_SYMBOL(msm_hs_get_bt_uport);
+*/
 
+#ifdef CONFIG_LGE_BLUESLEEP
 /* Get UART Clock State : */
 int msm_hs_get_bt_uport_clock_state(struct uart_port *uport)
 {
@@ -2888,9 +2888,7 @@ int msm_hs_get_bt_uport_clock_state(struct uart_port *uport)
 	return ret;
 }
 EXPORT_SYMBOL(msm_hs_get_bt_uport_clock_state);
-#endif /*                      */
-/*                                                                 */
-/*                                                        */
+#endif
 
 static bool deviceid[UARTDM_NR] = {0};
 /*

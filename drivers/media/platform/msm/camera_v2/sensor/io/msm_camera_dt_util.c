@@ -352,8 +352,7 @@ int msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 {
 #else
 int32_t msm_camera_get_dt_power_setting_data(struct device_node *of_node,
-	struct msm_sensor_power_setting **power_setting,
-	uint16_t *power_setting_size)
+	struct msm_camera_power_ctrl_t *power_info)
 {
 #endif
 	int rc = 0, i;//, j;
@@ -363,17 +362,17 @@ int32_t msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 	struct msm_sensor_power_setting *ps;
 
 	struct msm_sensor_power_setting *power_setting;
-	uint16_t *power_setting_size, size = 0;
+	uint16_t power_setting_size, size = 0;
 	bool need_reverse = 0;
 
 	if (!power_info)
 		return -EINVAL;
 
 	power_setting = power_info->power_setting;
-	power_setting_size = &power_info->power_setting_size;
+	power_setting_size = power_info->power_setting_size;
 
 	count = of_property_count_strings(of_node, "qcom,cam-power-seq-type");
-	*power_setting_size = count;
+	power_setting_size = count;
 
 	CDBG("%s qcom,cam-power-seq-type count %d\n", __func__, count);
 
@@ -530,9 +529,11 @@ int32_t msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 	for (i = 0; i < count; i++) {
 		if (ps[i].seq_type == SENSOR_GPIO) {
 			if (array[i] == 0)
-				ps[i].config_val = GPIO_OUT_LOW;
+				//ps[i].config_val = GPIO_OUT_LOW;
+                ps[i].config_val = 0;
 			else if (array[i] == 1)
-				ps[i].config_val = GPIO_OUT_HIGH;
+				//ps[i].config_val = GPIO_OUT_HIGH;
+                ps[i].config_val = 1;
 		} else {
 			ps[i].config_val = array[i];
 		}
@@ -553,7 +554,7 @@ int32_t msm_camera_get_dt_power_setting_data(struct device_node *of_node,
 	}
 	kfree(array);
 
-	size = *power_setting_size;
+	size = power_setting_size;
 
 	if (NULL != ps && 0 != size)
 		need_reverse = 1;

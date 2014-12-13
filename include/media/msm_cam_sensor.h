@@ -16,8 +16,8 @@
 #define MSM_SENSOR_MCLK_16HZ  16000000
 #define MSM_SENSOR_MCLK_24HZ  24000000
 
-#define GPIO_OUT_LOW          (0 << 1)
-#define GPIO_OUT_HIGH         (1 << 1)
+//#define GPIO_OUT_LOW          (0 << 1)
+//#define GPIO_OUT_HIGH         (1 << 1)
 
 #define CSI_EMBED_DATA        0x12
 #define CSI_RESERVED_DATA_0   0x13
@@ -356,6 +356,7 @@ struct msm_sensor_info_t {
 	uint32_t sensor_mount_angle;
 	int modes_supported;
 	enum camb_position_t position;
+    int ois_supported;
 };
 
 /*                                                          */

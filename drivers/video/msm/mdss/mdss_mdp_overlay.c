@@ -362,6 +362,7 @@ static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe)
 	}
 	/*                */
 #endif
+#if 0
 	for (;;) {
 		rc = mdss_mdp_perf_calc_pipe(pipe, &perf, NULL, true);
 
@@ -380,10 +381,12 @@ static int __mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe)
 		else
 			return -EPERM;
 	}
+#endif
 
 	return 0;
 }
 
+#if 0
 static int __mdss_mdp_validate_pxl_extn(struct mdss_mdp_pipe *pipe)
 {
 	int plane;
@@ -494,6 +497,7 @@ static int __mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe)
 	}
 	return rc;
 }
+#endif
 
 int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 				       struct mdp_overlay *req,
@@ -745,7 +749,8 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 	 * When scaling is enabled src crop and image
 	 * width and height is modified by user
 	 */
-	if ((pipe->flags & MDP_DEINTERLACE) && !pipe->scale.enable_pxl_ext) {
+	//if ((pipe->flags & MDP_DEINTERLACE) && !pipe->scale.enable_pxl_ext) {
+    if (pipe->flags & MDP_DEINTERLACE) {
 		if (pipe->flags & MDP_SOURCE_ROTATED_90) {
 			pipe->src.x = DIV_ROUND_UP(pipe->src.x, 2);
 			pipe->src.x &= ~1;
@@ -764,9 +769,11 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		goto exit_fail;
 	}
 
+/*
 	ret = __mdss_mdp_overlay_setup_scaling(pipe);
 	if (ret)
 		goto exit_fail;
+*/
 
 	if ((mixer->type == MDSS_MDP_MIXER_TYPE_WRITEBACK) &&
 		!mdp5_data->mdata->has_wfd_blk)

@@ -2083,7 +2083,7 @@ static int venus_hfi_get_q_size(struct venus_hfi_device *dev,
 	return rc;
 }
 
-/*                                                                                   */
+/*
 static int venus_hfi_is_msg_pending(struct venus_hfi_device *dev)
 {
 	struct hfi_queue_header *queue;
@@ -2103,7 +2103,7 @@ static int venus_hfi_is_msg_pending(struct venus_hfi_device *dev)
 	rc = read_ptr - write_ptr;
 	return rc;
 }
-/*                                                                                   */
+*/
 
 static inline void venus_hfi_clk_gating_on(struct venus_hfi_device *device)
 {

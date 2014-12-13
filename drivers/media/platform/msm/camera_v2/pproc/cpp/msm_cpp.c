@@ -1004,16 +1004,6 @@ static int cpp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		return -EINVAL;
 	}
 
-/*                                                                                             */
-	struct msm_device_queue *processing_q = NULL;
-	struct msm_device_queue *eventData_q = NULL;
-
-	if (!cpp_dev) {
-			pr_err("failed: cpp_dev %p\n", cpp_dev);
-			return -EINVAL;
-	}
-/*                                                                                             */
-
 	mutex_lock(&cpp_dev->mutex);
 
 	processing_q = &cpp_dev->processing_q;

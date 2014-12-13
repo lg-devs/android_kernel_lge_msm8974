@@ -1084,7 +1084,8 @@ static void pp_update_pa_v2_vig_opmode(struct pp_sts_type *pp_sts,
 static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 {
 	u32 scale_config = 0;
-	u32 phasex_step = 0, phasey_step = 0;
+    int init_phasex = 0, init_phasey = 0;
+	int phasex_step = 0, phasey_step = 0;
 	u32 chroma_sample;
 	u32 filter_mode;
 	struct mdss_data_type *mdata;
@@ -1154,6 +1155,7 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 		}
 
 		scale_config |= MDSS_MDP_SCALEY_EN;
+        //init_phasey = pipe->init_phase_y;
 		phasey_step = pipe->phase_step_y;
 
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
@@ -1211,6 +1213,7 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 		}
 
 		scale_config |= MDSS_MDP_SCALEX_EN;
+        //init_phasex = pipe->init_phase_x;
 		phasex_step = pipe->phase_step_x;
 
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
@@ -1254,52 +1257,54 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 		}
 	}
 
-	if (pipe->scale.enable_pxl_ext) {
+#if 0
+	if (pipe->enable_pxl_ext) {
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
 			/*program x,y initial phase and phase step*/
-			writel_relaxed(pipe->scale.init_phase_x[0],
+			writel_relaxed(pipe->init_phase_x,
 				pipe->base +
 				MDSS_MDP_REG_VIG_QSEED2_C03_INIT_PHASEX);
-			writel_relaxed(pipe->scale.phase_step_x[0],
+			writel_relaxed(pipe->init_phase_x,
 				pipe->base +
 				MDSS_MDP_REG_VIG_QSEED2_C03_PHASESTEPX);
-			writel_relaxed(pipe->scale.init_phase_x[1],
+			writel_relaxed(pipe->init_phase_x,
 				pipe->base +
 				MDSS_MDP_REG_VIG_QSEED2_C12_INIT_PHASEX);
-			writel_relaxed(pipe->scale.phase_step_x[1],
+			writel_relaxed(pipe->init_phase_x,
 				pipe->base +
 				MDSS_MDP_REG_VIG_QSEED2_C12_PHASESTEPX);
 
-			writel_relaxed(pipe->scale.init_phase_y[0],
+			writel_relaxed(pipe->init_phase_y
 				pipe->base +
 				MDSS_MDP_REG_VIG_QSEED2_C03_INIT_PHASEY);
-			writel_relaxed(pipe->scale.phase_step_y[0],
+			writel_relaxed(pipe->init_phase_y
 				pipe->base +
 				MDSS_MDP_REG_VIG_QSEED2_C03_PHASESTEPY);
-			writel_relaxed(pipe->scale.init_phase_y[1],
+			writel_relaxed(pipe->init_phase_y
 				pipe->base +
 				MDSS_MDP_REG_VIG_QSEED2_C12_INIT_PHASEY);
-			writel_relaxed(pipe->scale.phase_step_y[1],
+			writel_relaxed(pipe->init_phase_y
 				pipe->base +
 				MDSS_MDP_REG_VIG_QSEED2_C12_PHASESTEPY);
 		} else {
 
-			writel_relaxed(pipe->scale.phase_step_x[0],
+			writel_relaxed(pipe->phase_step_x,
 				pipe->base +
 				MDSS_MDP_REG_SCALE_PHASE_STEP_X);
-			writel_relaxed(pipe->scale.phase_step_y[0],
+			writel_relaxed(pipe->phase_step_y,
 				pipe->base +
 				MDSS_MDP_REG_SCALE_PHASE_STEP_Y);
-			writel_relaxed(pipe->scale.init_phase_x[0],
+			writel_relaxed(pipe->init_phase_x,
 				pipe->base +
 				MDSS_MDP_REG_SCALE_INIT_PHASE_X);
-			writel_relaxed(pipe->scale.init_phase_y[0],
+			writel_relaxed(pipe->init_phase_y,
 				pipe->base +
 				MDSS_MDP_REG_SCALE_INIT_PHASE_Y);
 		}
 		/*program pixel extn values for the SSPP*/
 		mdss_mdp_pipe_program_pixel_extn(pipe);
 	} else {
+#endif
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
 			/*program x,y initial phase and phase step*/
 			writel_relaxed(0,
@@ -1342,7 +1347,7 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 				pipe->base +
 				MDSS_MDP_REG_SCALE_INIT_PHASE_Y);
 		}
-	}
+//	}
 
 	writel_relaxed(scale_config, pipe->base +
 	   MDSS_MDP_REG_SCALE_CONFIG);

@@ -191,7 +191,7 @@ static int lge_dm_dev_tty_read_thread(void *data)
 					data->write_ptr_1->length);
 
 					if (!driver->real_time_mode) {
-					process_lock_on_copy(&data->nrt_lock);
+//					process_lock_on_copy(&data->nrt_lock);
 					clear_read_wakelock++;
 					}
 					
@@ -205,7 +205,7 @@ static int lge_dm_dev_tty_read_thread(void *data)
 					data->write_ptr_2->length);
 
 					if (!driver->real_time_mode) {
-					process_lock_on_copy(&data->nrt_lock);
+//					process_lock_on_copy(&data->nrt_lock);
 					clear_read_wakelock++;
 					}
 					
@@ -221,11 +221,11 @@ static int lge_dm_dev_tty_read_thread(void *data)
 						&(driver->smd_data[i].diag_read_smd_work));
 				}			
 			}
-			if (clear_read_wakelock) {
+/*			if (clear_read_wakelock) {
 				for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++)
 					process_lock_on_copy_complete(
 						&driver->smd_data[i].nrt_lock);
-			}
+			}*/
 
 		mutex_unlock(&driver->diagchar_mutex);
 

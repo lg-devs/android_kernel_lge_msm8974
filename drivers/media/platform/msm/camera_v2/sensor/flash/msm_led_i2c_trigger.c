@@ -119,7 +119,8 @@ int msm_flash_led_init(struct msm_led_flash_ctrl_t *fctrl)
 	gpio_set_value_cansleep(
 		power_info->gpio_conf->gpio_num_info->
 		gpio_num[SENSOR_GPIO_FL_EN],
-		GPIO_OUT_HIGH);
+//		GPIO_OUT_HIGH);
+        1);
 
 	if (fctrl->flash_i2c_client && fctrl->reg_setting) {
 		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_write_table(
@@ -148,11 +149,13 @@ int msm_flash_led_release(struct msm_led_flash_ctrl_t *fctrl)
 	gpio_set_value_cansleep(
 		power_info->gpio_conf->gpio_num_info->
 		gpio_num[SENSOR_GPIO_FL_EN],
-		GPIO_OUT_LOW);
+//		GPIO_OUT_LOW);
+        0);
 	gpio_set_value_cansleep(
 		power_info->gpio_conf->gpio_num_info->
 		gpio_num[SENSOR_GPIO_FL_NOW],
-		GPIO_OUT_LOW);
+//		GPIO_OUT_LOW);
+        0);
 	rc = msm_camera_request_gpio_table(
 		power_info->gpio_conf->cam_gpio_req_tbl,
 		power_info->gpio_conf->cam_gpio_req_tbl_size, 0);
@@ -186,7 +189,8 @@ int msm_flash_led_off(struct msm_led_flash_ctrl_t *fctrl)
 	gpio_set_value_cansleep(
 		power_info->gpio_conf->gpio_num_info->
 		gpio_num[SENSOR_GPIO_FL_NOW],
-		GPIO_OUT_LOW);
+//		GPIO_OUT_LOW);
+        0);
 
 	return rc;
 }
@@ -203,12 +207,14 @@ int msm_flash_led_low(struct msm_led_flash_ctrl_t *fctrl)
 	gpio_set_value_cansleep(
 		power_info->gpio_conf->gpio_num_info->
 		gpio_num[SENSOR_GPIO_FL_EN],
-		GPIO_OUT_HIGH);
+//		GPIO_OUT_HIGH);
+        1);
 
 	gpio_set_value_cansleep(
 		power_info->gpio_conf->gpio_num_info->
 		gpio_num[SENSOR_GPIO_FL_NOW],
-		GPIO_OUT_HIGH);
+//		GPIO_OUT_HIGH);
+        1);
 
 
 	if (fctrl->flash_i2c_client && fctrl->reg_setting) {
@@ -234,12 +240,14 @@ int msm_flash_led_high(struct msm_led_flash_ctrl_t *fctrl)
 	gpio_set_value_cansleep(
 		power_info->gpio_conf->gpio_num_info->
 		gpio_num[SENSOR_GPIO_FL_EN],
-		GPIO_OUT_HIGH);
+//		GPIO_OUT_HIGH);
+        1);
 
 	gpio_set_value_cansleep(
 		power_info->gpio_conf->gpio_num_info->
 		gpio_num[SENSOR_GPIO_FL_NOW],
-		GPIO_OUT_HIGH);
+//		GPIO_OUT_HIGH);
+        1);
 
 	if (fctrl->flash_i2c_client && fctrl->reg_setting) {
 		rc = fctrl->flash_i2c_client->i2c_func_tbl->i2c_write_table(

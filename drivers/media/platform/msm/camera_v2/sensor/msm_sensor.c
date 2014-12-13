@@ -176,14 +176,12 @@ static int32_t msm_sensor_get_dt_data(struct device_node *of_node,
 		sensordata->sensor_info->is_mount_angle_valid = 1;
 	}
 
-	/*                                                           */
 	if (of_property_read_bool(of_node, "qcom,gpio-ois-ldo") == true) {
-		sensordata->sensor_init_params->ois_supported = true;
+		sensordata->sensor_info->ois_supported = true;
 	}
 	else {
-		sensordata->sensor_init_params->ois_supported = false;
+		sensordata->sensor_info->ois_supported = false;
 	}
-	/*                                                           */
 
 	rc = of_property_read_u32(of_node, "qcom,sensor-position",
 		&sensordata->sensor_info->position);
@@ -217,17 +215,17 @@ static int32_t msm_sensor_get_dt_data(struct device_node *of_node,
 	if (rc < 0)
 		goto FREE_CSI;
 
+/*
 	rc = msm_camera_get_dt_power_setting_data(of_node,
 			sensordata->power_info.cam_vreg,
 			sensordata->power_info.num_vreg,
 			&sensordata->power_info);
 
-
 	if (rc < 0) {
 		pr_err("%s failed %d\n", __func__, __LINE__);
 		goto FREE_VREG;
 	}
-
+*/
 
 	rc = msm_camera_get_power_settimgs_from_sensor_lib(
 			&sensordata->power_info,
@@ -495,15 +493,56 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 	struct msm_camera_i2c_client *sensor_i2c_client;
 	struct msm_camera_slave_info *slave_info;
 	const char *sensor_name;
+    int i = 0;
+	int n_res = 0;
+
+    sensor_i2c_client = s_ctrl->sensor_i2c_client;
+	slave_info = s_ctrl->sensordata->slave_info;
+	sensor_name = s_ctrl->sensordata->sensor_name;
+
+#if 1
+	for(i =0;i<3;i++){
+		rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
+		 	 sensor_i2c_client,
+		 	 slave_info->sensor_id_reg_addr,
+		 	 &chipid, MSM_CAMERA_I2C_WORD_DATA);
+
+			if(rc >= 0){
+				n_res = 1;
+				break;
+			}
+			msleep(5);
+	}
+
+	if(n_res == 0){
+		CDBG("%s: %s: read id failed\n", __func__,
+			sensor_name);
+
+		if(strcmp(sensor_name, "imx135") == 0){
+			chipid = 0; //imx135
+			slave_info->sensor_id = 0; //imx135
+		}
+
+		if(strcmp(sensor_name, "imx132") == 0){
+			chipid = 132; //imx132
+			slave_info->sensor_id = 132; //imx132
+		}
+		if(strcmp(sensor_name, "imx208") == 0){
+			chipid = 208; //imx208
+			slave_info->sensor_id = 208; //imx208
+		}		
+		rc = 0;
+
+		CDBG("%s: %s: forcelly mapping the chip ID\n", __func__,
+			sensor_name);
+	}
+#else /* QCT original */
 
 	if (!s_ctrl) {
 		pr_err("%s:%d failed: %p\n",
 			__func__, __LINE__, s_ctrl);
 		return -EINVAL;
 	}
-	sensor_i2c_client = s_ctrl->sensor_i2c_client;
-	slave_info = s_ctrl->sensordata->slave_info;
-	sensor_name = s_ctrl->sensordata->sensor_name;
 
 	if (!sensor_i2c_client || !slave_info || !sensor_name) {
 		pr_err("%s:%d failed: %p %p %p\n",

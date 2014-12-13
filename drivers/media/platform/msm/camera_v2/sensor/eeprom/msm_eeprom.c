@@ -383,36 +383,28 @@ static int msm_eeprom_get_dt_data(struct msm_eeprom_ctrl_t *e_ctrl)
 			spi_client->spi_master->dev.of_node;
 	else if (e_ctrl->eeprom_device_type == MSM_CAMERA_PLATFORM_DEVICE)
 		of_node = e_ctrl->pdev->dev.of_node;
-	else if (e_ctrl->eeprom_device_type == MSM_CAMERA_I2C_DEVICE)
-		of_node = e_ctrl->i2c_client.client->dev.of_node;
-
+#endif
 	rc = msm_camera_get_dt_vreg_data(of_node, &power_info->cam_vreg,
 					     &power_info->num_vreg);
 	if (rc < 0)
 		return rc;
-
+/*#ifdef QULCOMM_ORIGINAL
 	rc = msm_camera_get_dt_power_setting_data(of_node,
 		power_info->cam_vreg, power_info->num_vreg,
-		&power_info->power_setting, &power_info->power_setting_size);
-	if (rc < 0)
-		goto error1;
+		power_info);
 #else
 	rc = msm_camera_get_dt_power_setting_data(of_node,
-		&power_info->power_setting, &power_info->power_setting_size);
-	if (rc)
-		return rc;
-
-	rc = msm_camera_get_dt_vreg_data(of_node, &power_info->cam_vreg,
-					     &power_info->num_vreg);
-	if (rc)
-		goto error1;
-#endif
+		power_info->cam_vreg, power_info->num_vreg,
+		power_info->power_setting, power_info->power_setting_size);
+#endif*/
+	if (rc < 0)
+		goto ERROR1;
 
 	power_info->gpio_conf = kzalloc(sizeof(struct msm_camera_gpio_conf),
 					GFP_KERNEL);
 	if (!power_info->gpio_conf) {
 		rc = -ENOMEM;
-		goto error2;
+		goto ERROR2;
 	}
 	gconf = power_info->gpio_conf;
 	gpio_array_size = of_gpio_count(of_node);
@@ -423,7 +415,7 @@ static int msm_eeprom_get_dt_data(struct msm_eeprom_ctrl_t *e_ctrl)
 			GFP_KERNEL);
 		if (!gpio_array) {
 			pr_err("%s failed %d\n", __func__, __LINE__);
-			goto error3;
+			goto ERROR3;
 		}
 		for (i = 0; i < gpio_array_size; i++) {
 			gpio_array[i] = of_get_gpio(of_node, i);
@@ -435,26 +427,26 @@ static int msm_eeprom_get_dt_data(struct msm_eeprom_ctrl_t *e_ctrl)
 			gpio_array, gpio_array_size);
 		if (rc < 0) {
 			pr_err("%s failed %d\n", __func__, __LINE__);
-			goto error4;
+			goto ERROR4;
 		}
 
 		rc = msm_camera_init_gpio_pin_tbl(of_node, gconf,
 			gpio_array, gpio_array_size);
 		if (rc < 0) {
 			pr_err("%s failed %d\n", __func__, __LINE__);
-			goto error4;
+			goto ERROR4;
 		}
 		kfree(gpio_array);
 	}
 
 	return rc;
-error4:
+ERROR4:
 	kfree(gpio_array);
-error3:
+ERROR3:
 	kfree(power_info->gpio_conf);
-error2:
+ERROR2:
 	kfree(power_info->cam_vreg);
-error1:
+ERROR1:
 	kfree(power_info->power_setting);
 	return rc;
 }
@@ -709,86 +701,6 @@ static int msm_eeprom_match_id(struct msm_eeprom_ctrl_t *e_ctrl)
 	return 0;
 }
 
-static int msm_eeprom_get_dt_data(struct msm_eeprom_ctrl_t *e_ctrl)
-{
-	int rc = 0, i = 0;
-	struct msm_eeprom_board_info *eb_info;
-	struct msm_camera_power_ctrl_t *power_info =
-		&e_ctrl->eboard_info->power_info;
-	struct device_node *of_node = NULL;
-	struct msm_camera_gpio_conf *gconf = NULL;
-	uint16_t gpio_array_size = 0;
-	uint16_t *gpio_array = NULL;
-
-	eb_info = e_ctrl->eboard_info;
-	if (e_ctrl->eeprom_device_type == MSM_CAMERA_SPI_DEVICE)
-		of_node = e_ctrl->i2c_client.
-			spi_client->spi_master->dev.of_node;
-	else if (e_ctrl->eeprom_device_type == MSM_CAMERA_PLATFORM_DEVICE)
-		of_node = e_ctrl->pdev->dev.of_node;
-
-	rc = msm_camera_get_dt_vreg_data(of_node, &power_info->cam_vreg,
-					     &power_info->num_vreg);
-	if (rc < 0)
-		return rc;
-
-	rc = msm_camera_get_dt_power_setting_data(of_node,
-		power_info->cam_vreg, power_info->num_vreg,
-		power_info);
-	if (rc < 0)
-		goto ERROR1;
-
-	power_info->gpio_conf = kzalloc(sizeof(struct msm_camera_gpio_conf),
-					GFP_KERNEL);
-	if (!power_info->gpio_conf) {
-		rc = -ENOMEM;
-		goto ERROR2;
-	}
-	gconf = power_info->gpio_conf;
-	gpio_array_size = of_gpio_count(of_node);
-	CDBG("%s gpio count %d\n", __func__, gpio_array_size);
-
-	if (gpio_array_size) {
-		gpio_array = kzalloc(sizeof(uint16_t) * gpio_array_size,
-			GFP_KERNEL);
-		if (!gpio_array) {
-			pr_err("%s failed %d\n", __func__, __LINE__);
-			goto ERROR3;
-		}
-		for (i = 0; i < gpio_array_size; i++) {
-			gpio_array[i] = of_get_gpio(of_node, i);
-			CDBG("%s gpio_array[%d] = %d\n", __func__, i,
-				gpio_array[i]);
-		}
-
-		rc = msm_camera_get_dt_gpio_req_tbl(of_node, gconf,
-			gpio_array, gpio_array_size);
-		if (rc < 0) {
-			pr_err("%s failed %d\n", __func__, __LINE__);
-			goto ERROR4;
-		}
-
-		rc = msm_camera_init_gpio_pin_tbl(of_node, gconf,
-			gpio_array, gpio_array_size);
-		if (rc < 0) {
-			pr_err("%s failed %d\n", __func__, __LINE__);
-			goto ERROR4;
-		}
-		kfree(gpio_array);
-	}
-
-	return rc;
-ERROR4:
-	kfree(gpio_array);
-ERROR3:
-	kfree(power_info->gpio_conf);
-ERROR2:
-	kfree(power_info->cam_vreg);
-ERROR1:
-	kfree(power_info->power_setting);
-	return rc;
-}
-
 static int msm_eeprom_mm_dts(struct msm_eeprom_board_info *eb_info,
 				struct device_node *of_node)
 {
@@ -1037,7 +949,7 @@ int32_t msm_eeprom_read(void)
 
 	if(global_e_ctrl != NULL){
 		for(i=0;i<3; i++){
-			rc = read_eeprom_memory(global_e_ctrl);
+			rc = read_eeprom_memory(global_e_ctrl, &global_e_ctrl->cal_data);
 			if(rc >= 0){
 				n_res = 1;
 				break;
@@ -1047,22 +959,20 @@ int32_t msm_eeprom_read(void)
 
 	if(n_res == 1){
 //		for (j = 0; j < global_e_ctrl->num_bytes; j++)
-//			pr_err("memory_data[%d] = 0x%X\n", j, global_e_ctrl->memory_data[j]);
-
-/*                                                            */
-		af_value1 = (uint8_t)(global_e_ctrl->memory_data[9]<<8) |(global_e_ctrl->memory_data[10]);
-		af_value2 = (uint8_t)(global_e_ctrl->memory_data[11]<<8) |(global_e_ctrl->memory_data[12]);
+//			pr_err("cal_data[%d] = 0x%X\n", j, global_e_ctrl->cal_data[j]);
+/*
+		af_value1 = (uint8_t)(global_e_ctrl->cal_data[9]<<8) |(global_e_ctrl->cal_data[10]);
+		af_value2 = (uint8_t)(global_e_ctrl->cal_data[11]<<8) |(global_e_ctrl->cal_data[12]);
 
 		CDBG("%s, af_value1 = %d\n", __func__, af_value1);
 		CDBG("%s, af_value2 = %d\n", __func__, af_value2);
-/*                                                            */
+*/
 	}
 	else
 	{
-		if(global_e_ctrl->memory_data != NULL)
-			kfree(global_e_ctrl->memory_data);
-		if(global_eb_info->eeprom_map != NULL)
-			kfree(global_eb_info->eeprom_map);
+		if((global_e_ctrl->cal_data.mapdata != NULL) && (global_e_ctrl->cal_data.map != NULL))
+			kfree(global_e_ctrl->cal_data.mapdata);
+			kfree(global_e_ctrl->cal_data.map);
 	}
 	return rc;
 }

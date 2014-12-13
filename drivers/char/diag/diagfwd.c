@@ -2181,7 +2181,7 @@ int diagfwd_disconnect(void)
 	if (driver->logging_mode == DM_DEV_MODE) {
 		driver->usb_connected = 0;
 
-		usb_diag_free_req(driver->legacy_ch);
+//		usb_diag_free_req(driver->legacy_ch);
 
 		return 0;
 	}
@@ -2193,7 +2193,7 @@ int diagfwd_disconnect(void)
 		printk(KERN_DEBUG "diag: USB disconnected in DM_APP_MODE\n");
 		driver->usb_connected = 0;
 
-		usb_diag_free_req(driver->legacy_ch);
+//		usb_diag_free_req(driver->legacy_ch);
 
 		return 0;
 	}

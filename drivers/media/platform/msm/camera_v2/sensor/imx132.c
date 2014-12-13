@@ -31,13 +31,13 @@ static struct msm_sensor_power_setting imx132_power_setting[] = {
 	{  /* Set GPIO_RESET to low to disable power on reset*/
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
-		.config_val = GPIO_OUT_LOW,
+		.config_val = 0,
 		.delay = 1,
 	},
 	{										//VDIG, PMIC_GPIO 10
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_VDIG,
-		.config_val = GPIO_OUT_HIGH,
+		.config_val = 1,
 		.delay = 1,
 	},
 	{
@@ -55,7 +55,7 @@ static struct msm_sensor_power_setting imx132_power_setting[] = {
 	{
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
-		.config_val = GPIO_OUT_HIGH,
+		.config_val = 1,
 		.delay = 10,
 	},
 	{
