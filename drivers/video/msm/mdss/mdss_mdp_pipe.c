@@ -75,7 +75,8 @@ static u32 mdss_mdp_smp_mmb_reserve(struct mdss_mdp_pipe_smp_map *smp_map,
 	 * Clear previous SMP reservations and reserve according to the
 	 * latest configuration
 	 */
-	mdss_mdp_smp_mmb_free(smp_map->reserved, false);
+	// TO-DO: Fix this, it's not exactly working right now (Rashed Abdel-Tawab 2014-12-16)
+    //mdss_mdp_smp_mmb_free(*smp_map->reserved, false);
 
 	/* Reserve mmb blocks*/
 	for (; i < n; i++) {
