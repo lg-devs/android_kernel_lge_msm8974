@@ -109,7 +109,7 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 {
 	struct iommu_domain *domain;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	int rc, ret;
+	int rc;
 
 	/*
 	 * iommu dynamic attach for following conditions.
@@ -139,9 +139,9 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 	if (rc) {
 		pr_debug("iommu memory mapping failed rc=%d\n", rc);
 	} else {
-		ret = mdss_iommu_ctrl(1);
-		if (IS_ERR_VALUE(ret)) {
-			pr_err("mdss iommu attach failed\n");
+		rc = mdss_iommu_attach(mdss_res);
+		if (rc) {
+			pr_debug("mdss iommu attach failed\n");
 			iommu_unmap(domain, mdp5_data->splash_mem_addr,
 						mdp5_data->splash_mem_size);
 		} else {
@@ -167,8 +167,6 @@ static void mdss_mdp_splash_unmap_splash_mem(struct msm_fb_data_type *mfd)
 
 		iommu_unmap(domain, mdp5_data->splash_mem_addr,
 						mdp5_data->splash_mem_size);
-		mdss_iommu_ctrl(0);
-
 		mfd->splash_info.iommu_dynamic_attached = false;
 	}
 }
@@ -248,6 +246,12 @@ int mdss_mdp_splash_cleanup(struct msm_fb_data_type *mfd,
 	}
 
 	mdss_mdp_footswitch_ctrl_splash(0);
+	if (!is_mdss_iommu_attached()) {
+		rc = mdss_iommu_attach(mdss_res);
+		if (rc)
+			pr_err("iommu attach failed rc=%d\n", rc);
+	}
+
 end:
 	return rc;
 }
@@ -500,8 +504,8 @@ static int mdss_mdp_splash_thread(void *data)
 	}
 	unlock_fb_info(mfd->fbi);
 
-	mutex_lock(&mfd->bl_lock);
 	mfd->bl_updated = true;
+	mutex_lock(&mfd->bl_lock);
 	mdss_fb_set_backlight(mfd, mfd->panel_info->bl_max >> 1);
 	mutex_unlock(&mfd->bl_lock);
 
@@ -537,6 +541,9 @@ static __ref int mdss_mdp_splash_parse_dt(struct msm_fb_data_type *mfd)
 	struct mdss_overlay_private *mdp5_mdata = mfd_to_mdp5_data(mfd);
 	int len = 0, rc = 0;
 	u32 offsets[2];
+#ifdef CONFIG_MACH_LGE
+	struct mdss_panel_data *pdata;
+#endif
 
 	mfd->splash_info.splash_logo_enabled =
 				of_property_read_bool(pdev->dev.of_node,
@@ -570,6 +577,9 @@ static __ref int mdss_mdp_splash_parse_dt(struct msm_fb_data_type *mfd)
 		mdp5_mdata->splash_mem_size);
 
 error:
+#ifdef CONFIG_MACH_LGE
+	pdata = dev_get_platdata(&mfd->pdev->dev);
+#endif
 	if (!rc && !mfd->panel_info->cont_splash_enabled &&
 		mdp5_mdata->splash_mem_addr) {
 		pr_debug("mem reservation not reqd if cont splash disabled\n");
@@ -578,7 +588,13 @@ error:
 		free_bootmem_late(mdp5_mdata->splash_mem_addr,
 				 mdp5_mdata->splash_mem_size);
 	} else if (rc && mfd->panel_info->cont_splash_enabled) {
-		pr_err("no rsvd mem found in DT for splash screen\n");
+#ifdef CONFIG_MACH_LGE
+		if (pdata->panel_info.type == MIPI_CMD_PANEL) {
+			pr_debug("rsvd mem for splash screen dont need for command mode\n");
+			rc = 0;
+		} else
+#endif
+			pr_err("no rsvd mem found in DT for splash screen\n");
 	} else {
 		rc = 0;
 	}
