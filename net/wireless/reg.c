@@ -302,11 +302,6 @@ static bool is_user_regdom_saved(void)
 	return true;
 }
 
-static bool is_cfg80211_regdom_intersected(void)
-{
-	return is_intersected_alpha2(cfg80211_regdomain->alpha2);
-}
-
 static int reg_copy_regd(const struct ieee80211_regdomain **dst_regd,
 			 const struct ieee80211_regdomain *src_regd)
 {
@@ -345,9 +340,6 @@ static void reg_regdb_search(struct work_struct *work)
 	struct reg_regdb_search_request *request;
 	const struct ieee80211_regdomain *curdom, *regdom;
 	int i, r;
-	bool set_reg = false;
-
-	mutex_lock(&cfg80211_mutex);
 
 	mutex_lock(&reg_regdb_search_mutex);
 	while (!list_empty(&reg_regdb_search_list)) {
@@ -363,7 +355,9 @@ static void reg_regdb_search(struct work_struct *work)
 				r = reg_copy_regd(&regdom, curdom);
 				if (r)
 					break;
-				set_reg = true;
+				mutex_lock(&cfg80211_mutex);
+				set_regdom(regdom);
+				mutex_unlock(&cfg80211_mutex);
 				break;
 			}
 		}
@@ -371,11 +365,6 @@ static void reg_regdb_search(struct work_struct *work)
 		kfree(request);
 	}
 	mutex_unlock(&reg_regdb_search_mutex);
-
-	if (set_reg)
-		set_regdom(regdom);
-
-	mutex_unlock(&cfg80211_mutex);
 }
 
 static DECLARE_WORK(reg_regdb_work, reg_regdb_search);
@@ -1195,10 +1184,7 @@ void regulatory_update(struct wiphy *wiphy,
 		       enum nl80211_reg_initiator setby)
 {
 	mutex_lock(&reg_mutex);
-	if (last_request)
-		wiphy_update_regulatory(wiphy, last_request->initiator);
-	else
-		wiphy_update_regulatory(wiphy, setby);
+	wiphy_update_regulatory(wiphy, setby);
 	mutex_unlock(&reg_mutex);
 }
 
@@ -1392,15 +1378,11 @@ static int ignore_request(struct wiphy *wiphy,
 		 * Process user requests only after previous user/driver/core
 		 * requests have been processed
 		 */
-		if ((last_request->initiator == NL80211_REGDOM_SET_BY_CORE ||
-		     last_request->initiator == NL80211_REGDOM_SET_BY_DRIVER ||
-		     last_request->initiator == NL80211_REGDOM_SET_BY_USER)) {
-			if (last_request->intersect) {
-				if (!is_cfg80211_regdom_intersected())
-					return -EAGAIN;
-			} else if (regdom_changes(last_request->alpha2)) {
+		if (last_request->initiator == NL80211_REGDOM_SET_BY_CORE ||
+		    last_request->initiator == NL80211_REGDOM_SET_BY_DRIVER ||
+		    last_request->initiator == NL80211_REGDOM_SET_BY_USER) {
+			if (regdom_changes(last_request->alpha2))
 				return -EAGAIN;
-			}
 		}
 
 		if (!regdom_changes(pending_request->alpha2))
@@ -1528,8 +1510,8 @@ static void reg_process_hint(struct regulatory_request *reg_request,
 	if (wiphy_idx_valid(reg_request->wiphy_idx))
 		wiphy = wiphy_idx_to_wiphy(reg_request->wiphy_idx);
 
-	if ((reg_initiator == NL80211_REGDOM_SET_BY_DRIVER ||
-	     reg_initiator == NL80211_REGDOM_SET_BY_COUNTRY_IE) && !wiphy) {
+	if (reg_initiator == NL80211_REGDOM_SET_BY_DRIVER &&
+	    !wiphy) {
 		kfree(reg_request);
 		return;
 	}

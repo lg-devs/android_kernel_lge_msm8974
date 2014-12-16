@@ -47,7 +47,7 @@ static inline u32 mdss_mdp_pipe_read(struct mdss_mdp_pipe *pipe, u32 reg)
 }
 
 static u32 mdss_mdp_smp_mmb_reserve(struct mdss_mdp_pipe_smp_map *smp_map,
-	size_t n, bool force_alloc)
+	size_t n)
 {
 	u32 i, mmb;
 	u32 fixed_cnt = bitmap_weight(smp_map->fixed, SMP_MB_CNT);
@@ -58,28 +58,8 @@ static u32 mdss_mdp_smp_mmb_reserve(struct mdss_mdp_pipe_smp_map *smp_map,
 	else
 		n -= fixed_cnt;
 
-	i = bitmap_weight(smp_map->allocated, SMP_MB_CNT);
-
-	/*
-	 * SMP programming is not double buffered. Fail the request,
-	 * that calls for change in smp configuration (addition/removal
-	 * of smp blocks), so that fallback solution happens.
-	 */
-	if (i != 0 && n != i && !force_alloc) {
-		pr_debug("Can't change mmb config, num_blks: %d alloc: %d\n",
-			n, i);
-		return 0;
-	}
-
-	/*
-	 * Clear previous SMP reservations and reserve according to the
-	 * latest configuration
-	 */
-	// TO-DO: Fix this, it's not exactly working right now (Rashed Abdel-Tawab 2014-12-16)
-    //mdss_mdp_smp_mmb_free(*smp_map->reserved, false);
-
-	/* Reserve mmb blocks*/
-	for (; i < n; i++) {
+	/* reserve more blocks if needed, but can't free mmb at this point */
+	for (i = bitmap_weight(smp_map->allocated, SMP_MB_CNT); i < n; i++) {
 		if (bitmap_full(mdata->mmb_alloc_map, SMP_MB_CNT))
 			break;
 
@@ -209,7 +189,6 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	struct mdss_mdp_plane_sizes ps;
 	int i;
 	int rc = 0, rot_mode = 0;
-    bool force_alloc = 0;
 	u32 nlines, format;
 	u32 seg_w;
 	u16 width;
@@ -294,8 +273,6 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 	else
 		nlines = pipe->bwc_mode ? 1 : 2;
 
-	force_alloc = pipe->flags & MDP_SMP_FORCE_ALLOC;
-
 	mutex_lock(&mdss_mdp_smp_lock);
 	for (i = 0; i < ps.num_planes; i++) {
 		if (rot_mode) {
@@ -316,7 +293,7 @@ int mdss_mdp_smp_reserve(struct mdss_mdp_pipe *pipe)
 		pr_debug("reserving %d mmb for pnum=%d plane=%d\n",
 				num_blks, pipe->num, i);
 		reserved = mdss_mdp_smp_mmb_reserve(&pipe->smp_map[i],
-			num_blks, force_alloc);
+			num_blks);
 		if (reserved < num_blks)
 			break;
 	}

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,8 +42,13 @@
 #define LPASS_BE_SEC_MI2S_TX "SEC_MI2S_TX"
 #define LPASS_BE_PRI_MI2S_RX "PRI_MI2S_RX"
 #define LPASS_BE_PRI_MI2S_TX "PRI_MI2S_TX"
+#ifdef CONFIG_SND_FM_RADIO
+#define LPASS_BE_TERT_MI2S_RX "TERT_MI2S_RX"
+#define LPASS_BE_TERT_MI2S_TX "TERT_MI2S_TX"
+#else
 #define LPASS_BE_TERT_MI2S_RX "TERTIARY_MI2S_RX"
 #define LPASS_BE_TERT_MI2S_TX "TERTIARY_MI2S_TX"
+#endif
 #define LPASS_BE_AUDIO_I2S_RX "AUDIO_I2S_RX"
 #define LPASS_BE_STUB_RX "STUB_RX"
 #define LPASS_BE_STUB_TX "STUB_TX"
@@ -79,17 +84,9 @@ enum {
 	MSM_FRONTEND_DAI_VOICE_STUB,
 	MSM_FRONTEND_DAI_VOLTE,
 	MSM_FRONTEND_DAI_DTMF_RX,
+	MSM_FRONTEND_DAI_LSM1,
 	MSM_FRONTEND_DAI_VOICE2,
 	MSM_FRONTEND_DAI_QCHAT,
-	MSM_FRONTEND_DAI_LSM1,
-	MSM_FRONTEND_DAI_LSM2,
-	MSM_FRONTEND_DAI_LSM3,
-	MSM_FRONTEND_DAI_LSM4,
-	MSM_FRONTEND_DAI_LSM5,
-	MSM_FRONTEND_DAI_LSM6,
-	MSM_FRONTEND_DAI_LSM7,
-	MSM_FRONTEND_DAI_LSM8,
-	MSM_FRONTEND_DAI_VOWLAN,
 	MSM_FRONTEND_DAI_MAX,
 };
 

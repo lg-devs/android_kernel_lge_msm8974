@@ -119,10 +119,6 @@ static void enable_emergency_dload_mode(void)
 		__raw_writel(EMERGENCY_DLOAD_MAGIC3,
 				emergency_dload_mode_addr +
 				(2 * sizeof(unsigned int)));
-
-		/* Need disable the pmic wdt, then the emergency dload mode
-		 * will not auto reset. */
-		qpnp_pon_wd_config(0);
 		mb();
 	}
 }
@@ -296,8 +292,6 @@ static void msm_restart_prepare(const char *cmd)
 		} else if (!strncmp(cmd, "--bnr_recovery", 14)) {
 			__raw_writel(0x77665555, restart_reason);
 #endif
-		} else if (!strcmp(cmd, "rtc")) {
-			__raw_writel(0x77665503, restart_reason);
 		} else if (!strncmp(cmd, "oem-", 4)) {
 			/*
 			 * oem-10 : used diag comand 250-105-1 power off

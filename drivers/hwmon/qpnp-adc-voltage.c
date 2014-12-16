@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -156,7 +156,6 @@ static struct qpnp_vadc_scale_fn vadc_scale_fn[] = {
 	[SCALE_THERM_150K_PULLUP] = {qpnp_adc_scale_therm_pu1},
 	[SCALE_QRD_BATT_THERM] = {qpnp_adc_scale_qrd_batt_therm},
 	[SCALE_QRD_SKUAA_BATT_THERM] = {qpnp_adc_scale_qrd_skuaa_batt_therm},
-	[SCALE_QRD_SKUG_BATT_THERM] = {qpnp_adc_scale_qrd_skug_batt_therm},
 };
 
 static int32_t qpnp_vadc_read_reg(struct qpnp_vadc_chip *vadc, int16_t reg,
@@ -633,52 +632,63 @@ static int32_t qpnp_vadc_version_check(struct qpnp_vadc_chip *dev)
 #define QPNP_VBAT_COEFF_13	102640000
 #define QPNP_VBAT_COEFF_14	22220000
 #define QPNP_VBAT_COEFF_15	83060000
-#define QPNP_VBAT_COEFF_16	2810
-#define QPNP_VBAT_COEFF_17	5260
-#define QPNP_VBAT_COEFF_18	8027
-#define QPNP_VBAT_COEFF_19	2347
-#define QPNP_VBAT_COEFF_20	6043
-#define QPNP_VBAT_COEFF_21	1914
-#define QPNP_VBAT_OFFSET_SMIC	9446
-#define QPNP_VBAT_OFFSET_GF	9441
-#define QPNP_OCV_OFFSET_SMIC	4596
-#define QPNP_OCV_OFFSET_GF	5896
-#define QPNP_VBAT_COEFF_22	6800
-#define QPNP_VBAT_COEFF_23	3500
-#define QPNP_VBAT_COEFF_24	4360
-#define QPNP_VBAT_COEFF_25	8060
+
+#define QPNP_VADC_REV_ID_8941_3_1	1
+#define QPNP_VADC_REV_ID_8026_1_0	2
+#define QPNP_VADC_REV_ID_8026_2_0	3
+
+static void qpnp_temp_comp_version_check(struct qpnp_vadc_chip *vadc,
+							int32_t *version)
+{
+	if (vadc->revision_dig_major == 3 &&
+			vadc->revision_ana_minor == 2)
+		*version = QPNP_VADC_REV_ID_8941_3_1;
+	else if (vadc->revision_dig_major == 1 &&
+			vadc->revision_ana_minor == 2)
+		*version = QPNP_VADC_REV_ID_8026_1_0;
+	else if (vadc->revision_dig_major == 2 &&
+			vadc->revision_ana_minor == 2)
+		*version = QPNP_VADC_REV_ID_8026_2_0;
+	else
+		*version = -EINVAL;
+
+	return;
+}
 
 static int32_t qpnp_ocv_comp(int64_t *result,
 			struct qpnp_vadc_chip *vadc, int64_t die_temp)
 {
 	int64_t temp_var = 0;
 	int64_t old = *result;
-	int version;
+	int32_t version;
 
-	version = qpnp_adc_get_revid_version(vadc->dev);
+	qpnp_temp_comp_version_check(vadc, &version);
 	if (version == -EINVAL)
 		return 0;
 
-	if (version == QPNP_REV_ID_8026_2_2) {
-		if (die_temp > 25000)
-			return 0;
-	}
+	if (die_temp < 25000)
+		return 0;
+
+	if (die_temp > 60000)
+		die_temp = 60000;
 
 	switch (version) {
-	case QPNP_REV_ID_8941_3_1:
+	case QPNP_VADC_REV_ID_8941_3_1:
 		switch (vadc->id) {
 		case COMP_ID_TSMC:
-			 temp_var = ((die_temp - 25000) *
-			(-QPNP_VBAT_COEFF_4));
+			temp_var = (((die_temp *
+			(-QPNP_VBAT_COEFF_4))
+			+ QPNP_VBAT_COEFF_5));
 			break;
 		default:
 		case COMP_ID_GF:
-			temp_var = ((die_temp - 25000) *
-			(-QPNP_VBAT_COEFF_1));
+			temp_var = (((die_temp *
+			(-QPNP_VBAT_COEFF_1))
+			+ QPNP_VBAT_COEFF_2));
 			break;
 		}
 		break;
-	case QPNP_REV_ID_8026_1_0:
+	case QPNP_VADC_REV_ID_8026_1_0:
 		switch (vadc->id) {
 		case COMP_ID_TSMC:
 			temp_var = (((die_temp *
@@ -693,53 +703,16 @@ static int32_t qpnp_ocv_comp(int64_t *result,
 			break;
 		}
 		break;
-	case QPNP_REV_ID_8026_2_0:
-	case QPNP_REV_ID_8026_2_1:
+	case QPNP_VADC_REV_ID_8026_2_0:
 		switch (vadc->id) {
 		case COMP_ID_TSMC:
-			temp_var = ((die_temp - 25000) *
+			temp_var = ((die_temp - 2500) *
 			(-QPNP_VBAT_COEFF_10));
 			break;
 		default:
 		case COMP_ID_GF:
-			temp_var = ((die_temp - 25000) *
+			temp_var = ((die_temp - 2500) *
 			(-QPNP_VBAT_COEFF_8));
-			break;
-		}
-		break;
-	case QPNP_REV_ID_8026_2_2:
-		switch (vadc->id) {
-		case COMP_ID_TSMC:
-			*result -= QPNP_VBAT_COEFF_22;
-			temp_var = (die_temp - 25000) *
-					QPNP_VBAT_COEFF_24;
-			break;
-		default:
-		case COMP_ID_GF:
-			*result -= QPNP_VBAT_COEFF_22;
-			temp_var = (die_temp - 25000) *
-					QPNP_VBAT_COEFF_25;
-			break;
-		}
-		break;
-	case QPNP_REV_ID_8110_2_0:
-		switch (vadc->id) {
-		case COMP_ID_SMIC:
-			*result -= QPNP_OCV_OFFSET_SMIC;
-			if (die_temp < 25000)
-				temp_var = QPNP_VBAT_COEFF_18;
-			else
-				temp_var = QPNP_VBAT_COEFF_19;
-			temp_var = (die_temp - 25000) * temp_var;
-			break;
-		default:
-		case COMP_ID_GF:
-			*result -= QPNP_OCV_OFFSET_GF;
-			if (die_temp < 25000)
-				temp_var = QPNP_VBAT_COEFF_20;
-			else
-				temp_var = QPNP_VBAT_COEFF_21;
-			temp_var = (die_temp - 25000) * temp_var;
 			break;
 		}
 		break;
@@ -765,36 +738,35 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 {
 	int64_t temp_var = 0;
 	int64_t old = *result;
-	int version;
+	int32_t version;
 
-	version = qpnp_adc_get_revid_version(vadc->dev);
+	qpnp_temp_comp_version_check(vadc, &version);
 	if (version == -EINVAL)
 		return 0;
 
-	if (version != QPNP_REV_ID_8941_3_1) {
-		/* min(die_temp_c, 60_degC) */
-		if (die_temp > 60000)
-			die_temp = 60000;
-	}
+	if (die_temp < 25000)
+		return 0;
+
+	/* min(die_temp_c, 60_degC) */
+	if (die_temp > 60000)
+		die_temp = 60000;
 
 	switch (version) {
-	case QPNP_REV_ID_8941_3_1:
+	case QPNP_VADC_REV_ID_8941_3_1:
 		switch (vadc->id) {
 		case COMP_ID_TSMC:
-			temp_var = ((die_temp - 25000) *
+			temp_var = (die_temp *
 			(-QPNP_VBAT_COEFF_1));
 			break;
 		default:
 		case COMP_ID_GF:
-			/* min(die_temp_c, 60_degC) */
-			if (die_temp > 60000)
-				die_temp = 60000;
-			temp_var = ((die_temp - 25000) *
-			(-QPNP_VBAT_COEFF_1));
+			temp_var = (((die_temp *
+			(-QPNP_VBAT_COEFF_6))
+			+ QPNP_VBAT_COEFF_7));
 			break;
 		}
 		break;
-	case QPNP_REV_ID_8026_1_0:
+	case QPNP_VADC_REV_ID_8026_1_0:
 		switch (vadc->id) {
 		case COMP_ID_TSMC:
 			temp_var = (((die_temp *
@@ -809,45 +781,16 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 			break;
 		}
 		break;
-	case QPNP_REV_ID_8026_2_0:
-	case QPNP_REV_ID_8026_2_1:
+	case QPNP_VADC_REV_ID_8026_2_0:
 		switch (vadc->id) {
 		case COMP_ID_TSMC:
-			temp_var = ((die_temp - 25000) *
+			temp_var = ((die_temp - 2500) *
 			(-QPNP_VBAT_COEFF_11));
 			break;
 		default:
 		case COMP_ID_GF:
-			temp_var = ((die_temp - 25000) *
+			temp_var = ((die_temp - 2500) *
 			(-QPNP_VBAT_COEFF_9));
-			break;
-		}
-		break;
-	case QPNP_REV_ID_8026_2_2:
-		switch (vadc->id) {
-		case COMP_ID_TSMC:
-			*result -= QPNP_VBAT_COEFF_23;
-			temp_var = 0;
-			break;
-		default:
-		case COMP_ID_GF:
-			*result -= QPNP_VBAT_COEFF_23;
-			temp_var = 0;
-			break;
-		}
-		break;
-	case QPNP_REV_ID_8110_2_0:
-		switch (vadc->id) {
-		case COMP_ID_SMIC:
-			*result -= QPNP_VBAT_OFFSET_SMIC;
-			temp_var = ((die_temp - 25000) *
-			(QPNP_VBAT_COEFF_17));
-			break;
-		default:
-		case COMP_ID_GF:
-			*result -= QPNP_VBAT_OFFSET_GF;
-			temp_var = ((die_temp - 25000) *
-			(QPNP_VBAT_COEFF_16));
 			break;
 		}
 		break;
@@ -869,7 +812,7 @@ static int32_t qpnp_vbat_sns_comp(int64_t *result,
 }
 
 int32_t qpnp_vbat_sns_comp_result(struct qpnp_vadc_chip *vadc,
-					int64_t *result, bool is_pon_ocv)
+						int64_t *result)
 {
 	struct qpnp_vadc_result die_temp_result;
 	int rc = 0;
@@ -885,12 +828,7 @@ int32_t qpnp_vbat_sns_comp_result(struct qpnp_vadc_chip *vadc,
 		return rc;
 	}
 
-	if (is_pon_ocv)
-		rc = qpnp_ocv_comp(result, vadc, die_temp_result.physical);
-	else
-		rc = qpnp_vbat_sns_comp(result, vadc,
-				die_temp_result.physical);
-
+	rc = qpnp_ocv_comp(result, vadc, die_temp_result.physical);
 	if (rc < 0)
 		pr_err("Error with vbat compensation\n");
 
@@ -991,14 +929,7 @@ static int32_t qpnp_vadc_calib_device(struct qpnp_vadc_chip *vadc)
 	}
 
 	pr_debug("absolute reference raw: 625mV:0x%x 1.25V:0x%x\n",
-				calib_read_2, calib_read_1);
-
-	if (calib_read_1 == calib_read_2) {
-		pr_err("absolute reference raw: 625mV:0x%x 1.25V:0x%x\n",
-				calib_read_2, calib_read_1);
-		rc = -EINVAL;
-		goto calib_fail;
-	}
+				calib_read_1, calib_read_2);
 
 	vadc->adc->amux_prop->chan_prop->adc_graph[CALIB_ABSOLUTE].dy =
 					(calib_read_1 - calib_read_2);
@@ -1078,14 +1009,6 @@ static int32_t qpnp_vadc_calib_device(struct qpnp_vadc_chip *vadc)
 
 	pr_debug("ratiometric reference raw: VDD:0x%x GND:0x%x\n",
 				calib_read_1, calib_read_2);
-
-	if (calib_read_1 == calib_read_2) {
-		pr_err("ratiometric reference raw: VDD:0x%x GND:0x%x\n",
-				calib_read_1, calib_read_2);
-		rc = -EINVAL;
-		goto calib_fail;
-	}
-
 	vadc->adc->amux_prop->chan_prop->adc_graph[CALIB_RATIOMETRIC].dy =
 					(calib_read_1 - calib_read_2);
 	vadc->adc->amux_prop->chan_prop->adc_graph[CALIB_RATIOMETRIC].dx =
@@ -1186,6 +1109,11 @@ int32_t qpnp_vadc_conv_seq_request(struct qpnp_vadc_chip *vadc,
 		return -EPROBE_DEFER;
 
 	mutex_lock(&vadc->adc->adc_lock);
+
+	if (vadc->vadc_poll_eoc) {
+		pr_debug("requesting vadc eoc stay awake\n");
+		pm_stay_awake(vadc->dev);
+	}
 
 	if (!vadc->vadc_init_calib) {
 		rc = qpnp_vadc_version_check(vadc);
@@ -1314,8 +1242,6 @@ int32_t qpnp_vadc_conv_seq_request(struct qpnp_vadc_chip *vadc,
 		qpnp_vadc_amux_scaling_ratio[amux_prescaling].num;
 	vadc->adc->amux_prop->chan_prop->offset_gain_denominator =
 		 qpnp_vadc_amux_scaling_ratio[amux_prescaling].den;
-	vadc->adc->amux_prop->chan_prop->calib_type =
-		vadc->adc->adc_channels[dt_index].calib_type;
 
 	scale_type = vadc->adc->adc_channels[dt_index].adc_scale_fn;
 	if (scale_type >= SCALE_NONE) {
@@ -1327,6 +1253,11 @@ int32_t qpnp_vadc_conv_seq_request(struct qpnp_vadc_chip *vadc,
 		vadc->adc->adc_prop, vadc->adc->amux_prop->chan_prop, result);
 
 fail_unlock:
+	if (vadc->vadc_poll_eoc) {
+		pr_debug("requesting vadc eoc stay awake\n");
+		pm_relax(vadc->dev);
+	}
+
 	mutex_unlock(&vadc->adc->adc_lock);
 
 	return rc;
@@ -1550,8 +1481,7 @@ void xo_therm_logging(void)
 #endif
 #endif
 #endif
-	printk(KERN_INFO "[XO_THERM] Result:%lld Raw:%d\n",
-		tmp.physical, tmp.adc_code);
+	// printk(KERN_INFO "[XO_THERM] Result:%lld Raw:%d\n", tmp.physical, tmp.adc_code);
 }
 #endif
 
@@ -1809,6 +1739,8 @@ static int __devexit qpnp_vadc_remove(struct spmi_device *spmi)
 	}
 	hwmon_device_unregister(vadc->vadc_hwmon);
 	list_del(&vadc->list);
+	if (vadc->vadc_poll_eoc)
+		pm_relax(vadc->dev);
 	dev_set_drvdata(&spmi->dev, NULL);
 
 	return 0;
@@ -1837,33 +1769,10 @@ static const struct of_device_id qpnp_vadc_match_table[] = {
 	{}
 };
 
-static int qpnp_vadc_suspend_noirq(struct device *dev)
-{
-	struct qpnp_vadc_chip *vadc = dev_get_drvdata(dev);
-	u8 status = 0;
-
-	if (vadc->vadc_poll_eoc) {
-		qpnp_vadc_read_reg(vadc, QPNP_VADC_STATUS1, &status);
-		status &= QPNP_VADC_STATUS1_REQ_STS_EOC_MASK;
-		pr_debug("vadc conversion status=%d\n", status);
-		if (status != QPNP_VADC_STATUS1_EOC) {
-			pr_err(
-				"Aborting suspend, adc conversion requested while suspending\n");
-			return -EBUSY;
-		}
-	}
-	return 0;
-}
-
-static const struct dev_pm_ops qpnp_vadc_pm_ops = {
-	.suspend_noirq	= qpnp_vadc_suspend_noirq,
-};
-
 static struct spmi_driver qpnp_vadc_driver = {
 	.driver		= {
 		.name	= "qcom,qpnp-vadc",
 		.of_match_table = qpnp_vadc_match_table,
-		.pm		= &qpnp_vadc_pm_ops,
 	},
 	.probe		= qpnp_vadc_probe,
 	.remove		= qpnp_vadc_remove,

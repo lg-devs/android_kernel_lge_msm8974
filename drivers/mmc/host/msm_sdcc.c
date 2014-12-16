@@ -79,6 +79,12 @@
 #define MSM_MMC_BUS_VOTING_DELAY	200 /* msecs */
 #define INVALID_TUNING_PHASE		-1
 
+#if defined(CONFIG_WIFI_CONTROL_FUNC)
+extern int sdc2_status_register(
+		void (*cb)(int card_present, void *dev), void *dev);
+extern unsigned int sdc2_status(struct device *dev);
+#endif
+
 #if defined(CONFIG_DEBUG_FS)
 static void msmsdcc_dbg_createhost(struct msmsdcc_host *);
 static struct dentry *debugfs_dir;
@@ -201,8 +207,7 @@ static void msmsdcc_pm_qos_update_latency(struct msmsdcc_host *host, int vote)
 	else
 		pm_qos_update_request(&host->pm_qos_req_dma,
 					PM_QOS_DEFAULT_VALUE);
-	/* LGE_CHANGE_S, [WiFi][hayun.kim@lge.com], 2013-06-12, dma qos control */
-#if 0
+	/*                                                                      */
 	#if (defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)) && defined(CONFIG_BROADCOM_WIFI_RESERVED_MEM)
 	{
 		extern void bcm_wifi_req_dma_qos(int vote);
@@ -211,8 +216,7 @@ static void msmsdcc_pm_qos_update_latency(struct msmsdcc_host *host, int vote)
 		}
 	}
 	#endif
-	/* LGE_CHANGE_E, [WiFi][hayun.kim@lge.com], 2013-06-12, dma qos control */
-#endif
+	/*                                                                      */
 }
 
 #ifdef CONFIG_MMC_MSM_SPS_SUPPORT
@@ -4357,31 +4361,11 @@ retry:
 		msmsdcc_dump_sdcc_state(host);
 		rc = -EAGAIN;
 
-		/*                                                                                      */
-		#if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE)
-		{
-			extern int lge_get_board_revno(void);
-			int bcmdhd_id = 2; /* sdcc 2 */
-			#if defined(CONFIG_MACH_MSM8974_G2_KR)
-			if (3 /*HW_REV_B*/ < lge_get_board_revno()) {
-			bcmdhd_id = 3; /* sdcc 3 */
-			}
-			#elif defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_G2_KDDI)
-			bcmdhd_id = 3; /* sdcc 3 */
-			#elif defined(CONFIG_MACH_MSM8974_B1_KR)
-			if (3 /*HW_REV_B*/ <= lge_get_board_revno() && 5 /*HW_REV_D*/ >= lge_get_board_revno()) {
-			bcmdhd_id = 2; /* sdcc 2 */
-			}else{
-			bcmdhd_id = 3;  /* sdcc 3 */
-			}
-			#endif
-			if (host->pdev->id == bcmdhd_id) {
-			    rc = 0;
-			    /* panic("Failed to tune.\n"); */ /*                                  */
-			}
+#if defined(CONFIG_WIFI_CONTROL_FUNC)
+		if (host->plat->wifi_control_func) {
+			rc = 0;
 		}
-		#endif
-		/*                                                                                      */
+#endif
 	}
 
 kfree:
@@ -5877,9 +5861,15 @@ static struct mmc_platform_data *msmsdcc_populate_pdata(struct device *dev)
 		goto err;
 	}
 
-	if (msmsdcc_dt_parse_vreg_info(dev,
-			&pdata->vreg_data->vdd_data, "vdd"))
-		goto err;
+	/*
+	 * Some devices might not use vdd. if qcom,not-use-vdd exists
+	 * skip the parse the vdd
+	 */
+	if (of_property_read_bool(np, "qcom,not-use-vdd") != true) {
+		if (msmsdcc_dt_parse_vreg_info(dev,
+				&pdata->vreg_data->vdd_data, "vdd"))
+			goto err;
+	}
 
 	if (msmsdcc_dt_parse_vreg_info(dev,
 			&pdata->vreg_data->vdd_io_data, "vdd-io"))
@@ -5944,12 +5934,6 @@ err:
 	return NULL;
 }
 
-/*                                                                    */
-#if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE) /* joon For device tree. */
-extern int sdc2_status_register(void (*cb)(int card_present, void *dev), void *dev);
-extern unsigned int sdc2_status(struct device *);
-#endif
-/*                                                                    */
 static int
 msmsdcc_probe(struct platform_device *pdev)
 {
@@ -6331,34 +6315,15 @@ msmsdcc_probe(struct platform_device *pdev)
 	 * Setup card detect change
 	 */
 
-/*                                                                    */
-#if defined(CONFIG_BCMDHD) || defined (CONFIG_BCMDHD_MODULE) /* joon For device tree. */
-{
-	extern int lge_get_board_revno(void);
-	int bcmdhd_id = 2; /* sdcc 2 */
-	#if defined(CONFIG_MACH_MSM8974_G2_KR)
-	if (3 /*HW_REV_B*/ < lge_get_board_revno()) {
-		bcmdhd_id = 3; /* sdcc 3 */
-	}
-	#elif defined(CONFIG_MACH_MSM8974_VU3_KR) || defined(CONFIG_MACH_MSM8974_G2_KDDI)
-		bcmdhd_id = 3; /* sdcc 3 */
-	#elif defined(CONFIG_MACH_MSM8974_B1_KR)
-	if (3 /*HW_REV_B*/ <= lge_get_board_revno() && 5 /*HW_REV_D*/ >= lge_get_board_revno()) {
-		bcmdhd_id = 2; /* sdcc 2 */
-	}else{
-		bcmdhd_id = 3; /* sdcc 3 */
-	}
-	#endif
-
-	printk("J:%s-%d> plat->nonremovable = %d bcmdhd_id=%d\n", __FUNCTION__, host->pdev->id, plat->nonremovable,bcmdhd_id );
-
-	if (host->pdev->id == bcmdhd_id) {
+#if defined(CONFIG_WIFI_CONTROL_FUNC)
+	pr_info("%s: id %d, nonremovable %d\n", mmc_hostname(mmc),
+			host->pdev->id, plat->nonremovable);
+	if (plat->wifi_control_func) {
 		plat->register_status_notify = sdc2_status_register;
 		plat->status = sdc2_status;
+		mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
 	}
-}
 #endif
-/*                                                                    */
 
 	if (!plat->status_gpio)
 		plat->status_gpio = -ENOENT;

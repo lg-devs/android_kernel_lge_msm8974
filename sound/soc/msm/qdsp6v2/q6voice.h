@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1319,7 +1319,7 @@ struct cal_mem {
 	void *buf;
 };
 
-#define MAX_VOC_SESSIONS 6
+#define MAX_VOC_SESSIONS 5
 
 struct common_data {
 	/* these default values are for all devices */
@@ -1393,25 +1393,21 @@ enum {
 #define VOC_PATH_VOLTE_PASSIVE 2
 #define VOC_PATH_VOICE2_PASSIVE 3
 #define VOC_PATH_QCHAT_PASSIVE 4
-#define VOC_PATH_VOWLAN_PASSIVE 5
 
 #define MAX_SESSION_NAME_LEN 32
-#define VOICE_SESSION_NAME   "Voice session"
-#define VOIP_SESSION_NAME    "VoIP session"
-#define VOLTE_SESSION_NAME   "VoLTE session"
-#define VOICE2_SESSION_NAME  "Voice2 session"
-#define QCHAT_SESSION_NAME   "QCHAT session"
-#define VOWLAN_SESSION_NAME  "VoWLAN session"
+#define VOICE_SESSION_NAME  "Voice session"
+#define VOIP_SESSION_NAME   "VoIP session"
+#define VOLTE_SESSION_NAME  "VoLTE session"
+#define VOICE2_SESSION_NAME "Voice2 session"
+#define QCHAT_SESSION_NAME  "QCHAT session"
 
 #define VOICE2_SESSION_VSID_STR "10DC1000"
 #define QCHAT_SESSION_VSID_STR "10803000"
-#define VOWLAN_SESSION_VSID_STR "10002000"
 #define VOICE_SESSION_VSID  0x10C01000
 #define VOICE2_SESSION_VSID 0x10DC1000
 #define VOLTE_SESSION_VSID  0x10C02000
 #define VOIP_SESSION_VSID   0x10004000
 #define QCHAT_SESSION_VSID  0x10803000
-#define VOWLAN_SESSION_VSID 0x10002000
 #define ALL_SESSION_VSID    0xFFFFFFFF
 #define VSID_MAX            ALL_SESSION_VSID
 
@@ -1444,8 +1440,9 @@ int voc_set_rx_vol_step(uint32_t session_id, uint32_t dir, uint32_t vol_step,
 			uint32_t ramp_duration);
 int voc_set_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute,
 		    uint32_t ramp_duration);
-int voc_set_device_mute(uint32_t session_id, uint32_t dir, uint32_t mute,
-			uint32_t ramp_duration);
+int voc_set_phonememo_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute); //                                                      
+int voc_set_rx_device_mute(uint32_t session_id, uint32_t mute,
+			   uint32_t ramp_duration);
 int voc_get_rx_device_mute(uint32_t session_id);
 int voc_set_route_flag(uint32_t session_id, uint8_t path_dir, uint8_t set);
 uint8_t voc_get_route_flag(uint32_t session_id, uint8_t path_dir);
@@ -1456,6 +1453,7 @@ int voc_alloc_voip_shared_memory(void);
 int is_voc_initialized(void);
 int voc_register_vocproc_vol_table(void);
 int voc_deregister_vocproc_vol_table(void);
+int voice_unmap_cal_blocks(void);
 
 int voc_unmap_cal_blocks(void);
 int voc_map_rtac_block(struct rtac_cal_block_data *cal_block);
@@ -1467,7 +1465,6 @@ int voc_start_playback(uint32_t set, uint16_t port_id);
 int voc_start_record(uint32_t port_id, uint32_t set, uint32_t session_id);
 int voice_get_idx_for_session(u32 session_id);
 int voc_set_ext_ec_ref(uint16_t port_id, bool state);
-int voc_update_amr_vocoder_rate(uint32_t session_id);
 int voc_disable_device(uint32_t session_id);
 int voc_enable_device(uint32_t session_id);
 

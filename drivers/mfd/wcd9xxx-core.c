@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/i2c.h>
 #include <sound/soc.h>
+
+#include <linux/reboot.h>
 
 #define WCD9XXX_REGISTER_START_OFFSET 0x800
 #define WCD9XXX_SLIM_RW_MAX_TRIES 3
@@ -555,6 +557,7 @@ static const struct intr_data intr_tbl_v2[] = {
 	{WCD9XXX_IRQ_EAR_PA_OCPL_FAULT, false},
 	{WCD9XXX_IRQ_HPH_L_PA_STARTUP, false},
 	{WCD9XXX_IRQ_HPH_R_PA_STARTUP, false},
+	{WCD9320_IRQ_EAR_PA_STARTUP, false},
 	{WCD9XXX_IRQ_RESERVED_0, false},
 	{WCD9XXX_IRQ_RESERVED_1, false},
 	{WCD9XXX_IRQ_MAD_AUDIO, false},
@@ -604,7 +607,7 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 				wcd9xxx->codec_type->num_irqs,
 				wcd9xxx_num_irq_regs(wcd9xxx),
 				wcd9xxx_reg_read, wcd9xxx_reg_write,
-				wcd9xxx_bulk_read, wcd9xxx_bulk_write);
+				wcd9xxx_bulk_read);
 
 	if (wcd9xxx_core_irq_init(&wcd9xxx->core_res))
 		goto err;
@@ -1641,6 +1644,7 @@ err_slim_add:
 	slim_remove_device(wcd9xxx->slim_slave);
 err_reset:
 	wcd9xxx_free_reset(wcd9xxx);
+	kernel_restart("wcd9xxx_slim_probe fail, kernel restart");
 err_supplies:
 	wcd9xxx_disable_supplies(wcd9xxx, pdata);
 err_codec:
@@ -1675,8 +1679,10 @@ static int wcd9xxx_device_up(struct wcd9xxx *wcd9xxx)
 		wcd9xxx->slim_device_bootup = false;
 		return 0;
 	}
+	ret = wcd9xxx_reset(wcd9xxx);
+	if (ret)
+		pr_err("%s: Resetting Codec failed\n", __func__);
 
-	dev_info(wcd9xxx->dev, "%s: codec bring up\n", __func__);
 	wcd9xxx_bring_up(wcd9xxx);
 	ret = wcd9xxx_irq_init(wcd9xxx_res);
 	if (ret) {
@@ -1688,25 +1694,6 @@ static int wcd9xxx_device_up(struct wcd9xxx *wcd9xxx)
 	return ret;
 }
 
-static int wcd9xxx_slim_device_reset(struct slim_device *sldev)
-{
-	int ret;
-	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
-	if (!wcd9xxx) {
-		pr_err("%s: wcd9xxx is NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	dev_info(wcd9xxx->dev, "%s: device reset\n", __func__);
-	if (wcd9xxx->slim_device_bootup)
-		return 0;
-	ret = wcd9xxx_reset(wcd9xxx);
-	if (ret)
-		dev_err(wcd9xxx->dev, "%s: Resetting Codec failed\n", __func__);
-
-	return ret;
-}
-
 static int wcd9xxx_slim_device_up(struct slim_device *sldev)
 {
 	struct wcd9xxx *wcd9xxx = slim_get_devicedata(sldev);
@@ -1714,7 +1701,7 @@ static int wcd9xxx_slim_device_up(struct slim_device *sldev)
 		pr_err("%s: wcd9xxx is NULL\n", __func__);
 		return -EINVAL;
 	}
-	dev_info(wcd9xxx->dev, "%s: slim device up\n", __func__);
+	dev_dbg(wcd9xxx->dev, "%s: device up\n", __func__);
 	return wcd9xxx_device_up(wcd9xxx);
 }
 
@@ -1845,7 +1832,6 @@ static struct slim_driver taiko_slim_driver = {
 	.resume = wcd9xxx_slim_resume,
 	.suspend = wcd9xxx_slim_suspend,
 	.device_up = wcd9xxx_slim_device_up,
-	.reset_device = wcd9xxx_slim_device_reset,
 	.device_down = wcd9xxx_slim_device_down,
 };
 
@@ -1865,7 +1851,6 @@ static struct slim_driver tapan_slim_driver = {
 	.resume = wcd9xxx_slim_resume,
 	.suspend = wcd9xxx_slim_suspend,
 	.device_up = wcd9xxx_slim_device_up,
-	.reset_device = wcd9xxx_slim_device_reset,
 	.device_down = wcd9xxx_slim_device_down,
 };
 

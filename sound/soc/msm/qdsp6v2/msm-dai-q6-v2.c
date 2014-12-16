@@ -57,7 +57,6 @@ enum {
 
 struct msm_dai_q6_dai_data {
 	DECLARE_BITMAP(status_mask, STATUS_MAX);
-	DECLARE_BITMAP(hwfree_status, STATUS_MAX);
 	u32 rate;
 	u32 channels;
 	u32 bitwidth;
@@ -100,6 +99,14 @@ static const char *const mi2s_format[] = {
 static const struct soc_enum mi2s_config_enum[] = {
 	SOC_ENUM_SINGLE_EXT(4, mi2s_format),
 };
+
+/*                                          
+                                                                                
+                                   
+*/
+static int aux_tx;
+static int aux_rx;
+/*              */
 
 static int msm_dai_q6_auxpcm_hw_params(
 				struct snd_pcm_substream *substream,
@@ -195,6 +202,23 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 		dev_get_drvdata(dai->dev);
 
 	mutex_lock(&aux_dai_data->rlock);
+	/*                                          
+                                                                                 
+                                    
+ */
+	if (dai->id == AFE_PORT_ID_SECONDARY_PCM_RX)
+		aux_rx--;
+	else if (dai->id == AFE_PORT_ID_SECONDARY_PCM_TX)
+		aux_tx--;
+
+	if (aux_rx < 0) {
+		aux_rx = 0;
+		goto exit;
+	} else if (aux_tx < 0) {
+		aux_tx = 0;
+		goto exit;	
+	}
+	/*              */
 
 	if (!(test_bit(STATUS_TX_PORT, aux_dai_data->auxpcm_port_status) ||
 	      test_bit(STATUS_RX_PORT, aux_dai_data->auxpcm_port_status))) {
@@ -246,6 +270,14 @@ static void msm_dai_q6_auxpcm_shutdown(struct snd_pcm_substream *substream,
 	afe_set_lpass_clock(aux_dai_data->rx_pid, lpass_pcm_src_clk);
 	afe_set_lpass_clock(aux_dai_data->tx_pid, lpass_pcm_src_clk);
 
+	/*                                          
+                                                                                 
+                                    
+ */
+	aux_rx = 0;
+	aux_tx = 0;
+	/*              */
+
 exit:
 	mutex_unlock(&aux_dai_data->rlock);
 	return;
@@ -266,6 +298,15 @@ static int msm_dai_q6_auxpcm_prepare(struct snd_pcm_substream *substream,
 	lpass_pcm_src_clk = (struct afe_clk_cfg *) &aux_dai_data->clk_cfg;
 
 	mutex_lock(&aux_dai_data->rlock);
+	/*                                          
+                                                                                 
+                                    
+ */
+	if (dai->id == AFE_PORT_ID_SECONDARY_PCM_RX)
+		aux_rx++;
+	else if (dai->id == AFE_PORT_ID_SECONDARY_PCM_TX)
+		aux_tx++;
+	/*              */
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		if (test_bit(STATUS_TX_PORT,
@@ -1511,11 +1552,6 @@ static int msm_dai_q6_mi2s_prepare(struct snd_pcm_substream *substream,
 			set_bit(STATUS_PORT_STARTED,
 				dai_data->status_mask);
 	}
-	if (!test_bit(STATUS_PORT_STARTED, dai_data->hwfree_status)) {
-		set_bit(STATUS_PORT_STARTED, dai_data->hwfree_status);
-		dev_dbg(dai->dev, "%s: set hwfree_status to started\n",
-				__func__);
-	}
 	return rc;
 }
 
@@ -1530,6 +1566,7 @@ static int msm_dai_q6_mi2s_hw_params(struct snd_pcm_substream *substream,
 		&mi2s_dai_data->rx_dai : &mi2s_dai_data->tx_dai);
 	struct msm_dai_q6_dai_data *dai_data = &mi2s_dai_config->mi2s_dai_data;
 	struct afe_param_id_i2s_cfg *i2s = &dai_data->port_config.i2s;
+
 
 	dai_data->channels = params_channels(params);
 	switch (dai_data->channels) {
@@ -1607,14 +1644,10 @@ static int msm_dai_q6_mi2s_hw_params(struct snd_pcm_substream *substream,
 	dai_data->port_config.i2s.i2s_cfg_minor_version =
 			AFE_API_VERSION_I2S_CONFIG;
 	dai_data->port_config.i2s.sample_rate = dai_data->rate;
-	if ((test_bit(STATUS_PORT_STARTED,
-	    mi2s_dai_data->rx_dai.mi2s_dai_data.status_mask) &&
+	if (test_bit(STATUS_PORT_STARTED,
+	    mi2s_dai_data->rx_dai.mi2s_dai_data.status_mask) ||
 	    test_bit(STATUS_PORT_STARTED,
-	    mi2s_dai_data->rx_dai.mi2s_dai_data.hwfree_status)) ||
-	    (test_bit(STATUS_PORT_STARTED,
-	    mi2s_dai_data->tx_dai.mi2s_dai_data.status_mask) &&
-	    test_bit(STATUS_PORT_STARTED,
-	    mi2s_dai_data->tx_dai.mi2s_dai_data.hwfree_status))) {
+	    mi2s_dai_data->tx_dai.mi2s_dai_data.status_mask)) {
 		if ((mi2s_dai_data->tx_dai.mi2s_dai_data.rate !=
 		    mi2s_dai_data->rx_dai.mi2s_dai_data.rate) ||
 		   (mi2s_dai_data->rx_dai.mi2s_dai_data.bitwidth !=
@@ -1678,23 +1711,6 @@ static int msm_dai_q6_mi2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 	return 0;
 }
 
-static int msm_dai_q6_mi2s_hw_free(struct snd_pcm_substream *substream,
-		struct snd_soc_dai *dai)
-{
-	struct msm_dai_q6_mi2s_dai_data *mi2s_dai_data =
-			dev_get_drvdata(dai->dev);
-	struct msm_dai_q6_dai_data *dai_data =
-		(substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
-		 &mi2s_dai_data->rx_dai.mi2s_dai_data :
-		 &mi2s_dai_data->tx_dai.mi2s_dai_data);
-
-	if (test_bit(STATUS_PORT_STARTED, dai_data->hwfree_status)) {
-		clear_bit(STATUS_PORT_STARTED, dai_data->hwfree_status);
-		dev_dbg(dai->dev, "%s: clear hwfree_status\n", __func__);
-	}
-	return 0;
-}
-
 static void msm_dai_q6_mi2s_shutdown(struct snd_pcm_substream *substream,
 				     struct snd_soc_dai *dai)
 {
@@ -1722,15 +1738,12 @@ static void msm_dai_q6_mi2s_shutdown(struct snd_pcm_substream *substream,
 			dev_err(dai->dev, "fail to close AFE port\n");
 		clear_bit(STATUS_PORT_STARTED, dai_data->status_mask);
 	}
-	if (test_bit(STATUS_PORT_STARTED, dai_data->hwfree_status))
-		clear_bit(STATUS_PORT_STARTED, dai_data->hwfree_status);
 }
 
 static struct snd_soc_dai_ops msm_dai_q6_mi2s_ops = {
 	.startup	= msm_dai_q6_mi2s_startup,
 	.prepare	= msm_dai_q6_mi2s_prepare,
 	.hw_params	= msm_dai_q6_mi2s_hw_params,
-	.hw_free	= msm_dai_q6_mi2s_hw_free,
 	.set_fmt	= msm_dai_q6_mi2s_set_fmt,
 	.shutdown	= msm_dai_q6_mi2s_shutdown,
 };

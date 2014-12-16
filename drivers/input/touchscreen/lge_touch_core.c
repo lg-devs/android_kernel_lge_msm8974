@@ -2053,9 +2053,9 @@ char *touch_wakeup_gesture[2] = { "TOUCH_GESTURE_WAKEUP=WAKEUP", NULL };
 static void touch_gesture_wakeup_func(struct work_struct *work_gesture_wakeup)
 {
 	u8 buf= 0;
-/*#if defined(A1_only)
+#if defined(CONFIG_LGE_SECURITY_KNOCK_ON) && defined(A1_only)
 	int A1_vendor = 0;
-#endif*/
+#endif
 	struct lge_touch_data *ts =
 		container_of(to_delayed_work(work_gesture_wakeup), struct lge_touch_data, work_gesture_wakeup);
 
@@ -2130,7 +2130,7 @@ switch(ts->fw_info.fw_setting.ic_chip_rev) {
 
 	TOUCH_INFO_MSG("INTERRUPT_STATUS_REG %x\n", buf);
 
-    input_report_key(ts->input_dev, KEY_POWER, BUTTON_PRESSED);
+	input_report_key(ts->input_dev, KEY_POWER, BUTTON_PRESSED);
 	input_report_key(ts->input_dev, KEY_POWER, BUTTON_RELEASED);
 	input_sync(ts->input_dev);
 
@@ -3286,6 +3286,7 @@ static irqreturn_t touch_thread_irq_handler(int irq, void *dev_id)
 		queue_delayed_work(touch_wq, &ts->work_gesture_wakeup,
 				msecs_to_jiffies(0));
 #endif
+
 		return IRQ_HANDLED;
 	}
 #endif
@@ -4747,7 +4748,7 @@ static LGE_TOUCH_ATTR(ime_status, S_IRUGO | S_IWUSR, show_ime_drumming_status, s
 #endif
 #ifdef CUST_G2_TOUCH_WAKEUP_GESTURE
 #ifndef CONFIG_LGE_SECURITY_KNOCK_ON
-#if defined(CONFIG_LGE_VU3_TOUCHSCREEN) || defined(CONFIG_LGE_Z_TOUCHSCREEN) || defined(A1_only)
+#if defined(CONFIG_LGE_VU3_TOUCHSCREEN) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 static LGE_TOUCH_ATTR(lpwg_notify, S_IRUGO | S_IWUSR, NULL, store_touch_gesture);
 #else
 static LGE_TOUCH_ATTR(touch_gesture, S_IRUGO | S_IWUSR, NULL, store_touch_gesture);
@@ -4792,7 +4793,7 @@ static struct attribute *lge_touch_attribute_list[] = {
 #endif
 #ifdef CUST_G2_TOUCH_WAKEUP_GESTURE
 #ifndef CONFIG_LGE_SECURITY_KNOCK_ON
-#if defined(CONFIG_LGE_VU3_TOUCHSCREEN) || defined(CONFIG_LGE_Z_TOUCHSCREEN) || defined(A1_only)
+#if defined(CONFIG_LGE_VU3_TOUCHSCREEN) || defined(CONFIG_LGE_Z_TOUCHSCREEN)
 	&lge_touch_attr_lpwg_notify.attr,
 #else
 	&lge_touch_attr_touch_gesture.attr,
@@ -5508,12 +5509,6 @@ static int touch_probe(struct i2c_client *client, const struct i2c_device_id *id
 		input_set_abs_params(ts->input_dev, ABS_MT_WIDTH_MINOR, 0, ts->pdata->caps->max_width, 0, 0);
 		input_set_abs_params(ts->input_dev, ABS_MT_ORIENTATION, 0, 1, 0, 0);
 	}
-/* jiyeon.park 2014-10-24 TD#104049 fixed.*/
-/*
-#ifdef CUST_G2_TOUCH
-	input_set_abs_params(ts->input_dev, ABS_MT_TOOL_TYPE,0, MT_TOOL_MAX, 0, 0);
-#endif
-*/
 
 #if defined(MT_PROTOCOL_A)
 	if (ts->pdata->caps->is_id_supported)

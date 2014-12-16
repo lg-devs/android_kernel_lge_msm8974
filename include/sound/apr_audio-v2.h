@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -579,15 +579,6 @@ struct adm_cmd_matrix_mute_v5 {
 	/* Clients must set this field to zero.*/
 } __packed;
 
-#define ASM_PARAM_ID_AAC_STEREO_MIX_COEFF_SELECTION_FLAG_V2 (0x00010DD8)
-
-struct asm_aac_stereo_mix_coeff_selection_param_v2 {
-	struct apr_hdr          hdr;
-	u32                     param_id;
-	u32                     param_size;
-	u32                     aac_stereo_mix_coeff_flag;
-} __packed;
-
 /* Allows a client to connect the desired stream to
  * the desired AFE port through the stream router
  *
@@ -652,6 +643,7 @@ struct adm_cmd_connect_afe_port_v5 {
 #define RSVD_2 9
 #define RSVD_3 10
 #define DIGI_MIC_TX 11
+#define GLOBAL_CFG 12
 #define VOICE2_PLAYBACK_TX 0x8002
 #define VOICE_RECORD_RX 0x8003
 #define VOICE_RECORD_TX 0x8004
@@ -2264,7 +2256,6 @@ struct afe_port_cmdrsp_get_param_v2 {
 #define VPM_TX_SM_ECNS_COPP_TOPOLOGY			0x00010F71
 #define VPM_TX_DM_FLUENCE_COPP_TOPOLOGY			0x00010F72
 #define VPM_TX_QMIC_FLUENCE_COPP_TOPOLOGY		0x00010F75
-#define VPM_TX_DM_RFECNS_COPP_TOPOLOGY			0x00010F86
 
 /* Memory map regions command payload used by the
  * #ASM_CMD_SHARED_MEM_MAP_REGIONS ,#ADM_CMD_SHARED_MEM_MAP_REGIONS
@@ -4709,25 +4700,6 @@ struct asm_stream_cmd_open_write_compressed {
 
 } __packed;
 
-
-/*
-    Indicates the number of samples per channel to be removed from the
-    beginning of the stream.
-*/
-#define ASM_DATA_CMD_REMOVE_INITIAL_SILENCE 0x00010D67
-/*
-    Indicates the number of samples per channel to be removed from
-    the end of the stream.
-*/
-#define ASM_DATA_CMD_REMOVE_TRAILING_SILENCE 0x00010D68
-struct asm_data_cmd_remove_silence {
-	struct apr_hdr hdr;
-	u32	num_samples_to_remove;
-	/**< Number of samples per channel to be removed.
-
-	   @values 0 to (2@sscr{32}-1) */
-} __packed;
-
 #define ASM_STREAM_CMD_OPEN_READ_COMPRESSED                        0x00010D95
 
 struct asm_stream_cmd_open_read_compressed {
@@ -6884,7 +6856,6 @@ struct afe_param_id_clip_bank_sel {
 #define Q6AFE_LPASS_IBIT_CLK_1_P024_MHZ		 0xFA000
 #define Q6AFE_LPASS_IBIT_CLK_768_KHZ		 0xBB800
 #define Q6AFE_LPASS_IBIT_CLK_512_KHZ		 0x7D000
-#define Q6AFE_LPASS_IBIT_CLK_256_KHZ		 0x3E800
 #define Q6AFE_LPASS_IBIT_CLK_DISABLE		     0x0
 
 /* Supported LPASS CLK sources */

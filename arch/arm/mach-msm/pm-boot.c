@@ -343,4 +343,4 @@ static int __init msm_pm_boot_module_init(void)
 {
 	return platform_driver_register(&msm_pm_boot_driver);
 }
-postcore_initcall(msm_pm_boot_module_init);
+module_init(msm_pm_boot_module_init);

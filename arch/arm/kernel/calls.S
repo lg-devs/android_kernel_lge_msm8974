@@ -387,14 +387,10 @@
 /* 375 */	CALL(sys_setns)
 		CALL(sys_process_vm_readv)
 		CALL(sys_process_vm_writev)
-		CALL(sys_ni_syscall)
-		CALL(sys_ni_syscall)
-/* 380 */	CALL(sys_ni_syscall)
-		CALL(sys_ni_syscall)
-		CALL(sys_ni_syscall)
-		CALL(sys_seccomp)
+/* FEATURE_SDCARD_MEDIAEXN_SYSTEMCALL_ENCRYPTION [S] */
 		CALL(sys_set_media_property)
-/* 385 */	CALL(sys_set_media_ext)
+/* 379 */	CALL(sys_set_media_ext)
+/* FEATURE_SDCARD_MEDIAEXN_SYSTEMCALL_ENCRYPTION [E] */
 #ifndef syscalls_counted
 .equ syscalls_padding, ((NR_syscalls + 3) & ~3) - NR_syscalls
 #define syscalls_counted

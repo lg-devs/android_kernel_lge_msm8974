@@ -79,16 +79,14 @@
 #define MSMFB_WRITEBACK_SET_MIRRORING_HINT _IOW(MSMFB_IOCTL_MAGIC, 167, \
 						unsigned int)
 #define MSMFB_ASYNC_BLIT              _IOW(MSMFB_IOCTL_MAGIC, 168, unsigned int)
-#define MSMFB_OVERLAY_PREPARE		_IOWR(MSMFB_IOCTL_MAGIC, 169, \
-						struct mdp_overlay_list)
-#define MSMFB_LPM_ENABLE        _IOWR(MSMFB_IOCTL_MAGIC, 170, unsigned int)
-
-#define MSMFB_INVERT_PANEL  _IOW(MSMFB_IOCTL_MAGIC, 168, unsigned int)
+#define MSMFB_INVERT_PANEL          _IOW(MSMFB_IOCTL_MAGIC, 168, unsigned int)
+#define MSMFB_OVERLAY_PREPARE           _IOWR(MSMFB_IOCTL_MAGIC, 169, \
+                                                struct mdp_overlay_list)
 
 #if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG) || defined(LGE_BROADCAST_ONESEG)
 #define MSMFB_DMB_SET_FLAG        _IOW(MSMFB_IOCTL_MAGIC, 169, int)
 #define MSMFB_DMB_SET_CSC_MATRIX  _IOW(MSMFB_IOCTL_MAGIC, 170, struct mdp_csc_cfg)
-#endif /*               */
+#endif /* LGE_BROADCAST */
 
 #define FB_TYPE_3D_PANEL 0x10101010
 #define MDP_IMGTYPE2_START 0x10000
@@ -128,7 +126,6 @@ enum {
 	NOTIFY_TYPE_NO_UPDATE,
 	NOTIFY_TYPE_SUSPEND,
 	NOTIFY_TYPE_UPDATE,
-	NOTIFY_TYPE_BL_UPDATE,
 };
 
 enum {
@@ -229,7 +226,6 @@ enum {
 #define MDP_MEMORY_ID_TYPE_FB		0x00001000
 #define MDP_BWC_EN			0x00000400
 #define MDP_DECIMATION_EN		0x00000800
-#define MDP_SMP_FORCE_ALLOC            0x00200000
 #define MDP_TRANSP_NOP 0xffffffff
 #define MDP_ALPHA_NOP 0xff
 
@@ -471,9 +467,9 @@ struct mdp_pa_v2_data {
 	struct mdp_pa_mem_col_cfg sky_cfg;
 	struct mdp_pa_mem_col_cfg fol_cfg;
 	uint32_t six_zone_len;
-	uint32_t six_zone_thresh;
 	uint32_t *six_zone_curve_p0;
 	uint32_t *six_zone_curve_p1;
+	uint32_t six_zone_thresh;
 };
 
 struct mdp_igc_lut_data {
@@ -860,13 +856,8 @@ enum {
 	DTM_EXIT,
 };
 
-#define MDSS_PP_SPLIT_LEFT_ONLY		0x10000000
-#define MDSS_PP_SPLIT_RIGHT_ONLY	0x20000000
-#define MDSS_PP_SPLIT_MASK		0x30000000
-
 #define MDSS_MAX_BL_BRIGHTNESS 255
 #define AD_BL_LIN_LEN 256
-#define AD_BL_ATT_LUT_LEN 33
 
 #define MDSS_AD_MODE_AUTO_BL	0x0
 #define MDSS_AD_MODE_AUTO_STR	0x1
@@ -895,13 +886,9 @@ struct mdss_ad_init {
 	uint16_t frame_h;
 	uint8_t logo_v;
 	uint8_t logo_h;
-	uint32_t alpha;
-	uint32_t alpha_base;
 	uint32_t bl_lin_len;
-	uint32_t bl_att_len;
 	uint32_t *bl_lin;
 	uint32_t *bl_lin_inv;
-	uint32_t *bl_att_lut;
 };
 
 #define MDSS_AD_BL_CTRL_MODE_EN 1

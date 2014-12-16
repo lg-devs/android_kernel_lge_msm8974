@@ -32,7 +32,6 @@ enum {
 	MAX_AFE_CAL_TYPES
 };
 
-
 struct afe_ctl {
 	void *apr;
 	atomic_t state;
@@ -222,7 +221,6 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 	}
 	return 0;
 }
-
 
 int afe_get_port_type(u16 port_id)
 {
@@ -436,9 +434,8 @@ static void afe_send_cal_block(int32_t path, u16 port_id)
 	}
 
 	index = q6audio_get_port_index(port_id);
-	if (index < 0 || index > AFE_MAX_PORTS) {
-		pr_debug("%s: AFE port index[%d] invalid!\n",
-				__func__, index);
+	if (index < 0) {
+		pr_debug("%s: AFE port index invalid!\n", __func__);
 		goto done;
 	}
 
@@ -653,9 +650,8 @@ static int afe_send_hw_delay(u16 port_id, u32 rate)
 		goto fail_cmd;
 	}
 	index = q6audio_get_port_index(port_id);
-	if (index < 0 || index > AFE_MAX_PORTS) {
-		pr_debug("%s: AFE port index[%d] invalid!\n",
-				__func__, index);
+	if (index < 0) {
+		pr_debug("%s: AFE port index invalid!\n", __func__);
 		goto fail_cmd;
 	}
 
@@ -1437,6 +1433,7 @@ int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 		pr_err("%s: AFE enable for port %#x failed\n", __func__,
 				port_id);
 		goto fail_cmd;
+
 	} else if (atomic_read(&this_afe.status) != 0) {
 		pr_err("%s: config cmd failed\n", __func__);
 		ret = -EINVAL;
@@ -2368,8 +2365,6 @@ int afe_unregister_get_events(u16 port_id)
 	struct afe_service_cmd_unregister_rt_port_driver rtproxy;
 	int index = 0;
 
-	pr_debug("%s:\n", __func__);
-
 	if (this_afe.apr == NULL) {
 		this_afe.apr = apr_register("ADSP", "AFE", afe_callback,
 					0xFFFFFFFF, &this_afe);
@@ -2580,7 +2575,7 @@ static ssize_t afe_debug_write(struct file *filp,
 				goto afe_error;
 			}
 
-			if (param[1] > 100) {
+			if (param[1] < 0 || param[1] > 100) {
 				pr_err("%s: Error, volume shoud be 0 to 100 percentage param = %lu\n",
 					__func__, param[1]);
 				rc = -EINVAL;
@@ -2899,9 +2894,8 @@ int afe_close(int port_id)
 			__func__, pcm_afe_instance[port_id & 0x1]);
 		port_id = VIRTUAL_ID_TO_PORTID(port_id);
 		pcm_afe_instance[port_id & 0x1]--;
-		if ((!(pcm_afe_instance[port_id & 0x1] == 0 &&
-			proxy_afe_instance[port_id & 0x1] == 0)) ||
-			afe_close_done[port_id & 0x1] == true)
+		if (!(pcm_afe_instance[port_id & 0x1] == 0 &&
+			proxy_afe_instance[port_id & 0x1] == 0))
 			return 0;
 		else
 			afe_close_done[port_id & 0x1] = true;
@@ -2913,9 +2907,8 @@ int afe_close(int port_id)
 			__func__, proxy_afe_instance[port_id & 0x1]);
 		port_id = VIRTUAL_ID_TO_PORTID(port_id);
 		proxy_afe_instance[port_id & 0x1]--;
-		if ((!(pcm_afe_instance[port_id & 0x1] == 0 &&
-			proxy_afe_instance[port_id & 0x1] == 0)) ||
-			afe_close_done[port_id & 0x1] == true)
+		if (!(pcm_afe_instance[port_id & 0x1] == 0 &&
+			proxy_afe_instance[port_id & 0x1] == 0))
 			return 0;
 		else
 			afe_close_done[port_id & 0x1] = true;

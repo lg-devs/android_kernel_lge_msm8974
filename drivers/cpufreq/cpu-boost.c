@@ -43,10 +43,8 @@ static DEFINE_PER_CPU(struct cpu_sync, sync_info);
 static struct workqueue_struct *cpu_boost_wq;
 
 static struct work_struct input_boost_work;
-//CAF version
-static unsigned int boost_ms;
-//LG version (shouldn't be needed)
-//static unsigned int boost_ms = 0;
+
+static unsigned int boost_ms = 0;
 module_param(boost_ms, uint, 0644);
 
 static unsigned int sync_threshold;
@@ -65,12 +63,6 @@ static u64 last_input_time;
  * The CPUFREQ_ADJUST notifier is used to override the current policy min to
  * make sure policy min >= boost_min. The cpufreq framework then does the job
  * of enforcing the new policy.
- *
- * The sync kthread needs to run on the CPU in question to avoid deadlocks in
- * the wake up code. Achieve this by binding the thread to the respective
- * CPU. But a CPU going offline unbinds threads from that CPU. So, set it up
- * again each time the CPU comes back up. We can use CPUFREQ_START to figure
- * out a CPU is coming online instead of registering for hotplug notifiers.
  */
 static int boost_adjust_notify(struct notifier_block *nb, unsigned long val, void *data)
 {
@@ -81,27 +73,22 @@ static int boost_adjust_notify(struct notifier_block *nb, unsigned long val, voi
 	unsigned int ib_min = s->input_boost_min;
 	unsigned int min;
 
-	switch (val) {
-	case CPUFREQ_ADJUST:
-		if (!b_min && !ib_min)
-			break;
+	if (val != CPUFREQ_ADJUST)
+		return NOTIFY_OK;
 
-		min = max(b_min, ib_min);
+	if (!b_min && !ib_min)
+		return NOTIFY_OK;
 
-		pr_debug("CPU%u policy min before boost: %u kHz\n",
-			 cpu, policy->min);
-		pr_debug("CPU%u boost min: %u kHz\n", cpu, min);
+	min = max(b_min, ib_min);
 
-		cpufreq_verify_within_limits(policy, min, UINT_MAX);
+	pr_debug("CPU%u policy min before boost: %u kHz\n",
+		 cpu, policy->min);
+	pr_debug("CPU%u boost min: %u kHz\n", cpu, min);
 
-		pr_debug("CPU%u policy min after boost: %u kHz\n",
-			 cpu, policy->min);
-		break;
+	cpufreq_verify_within_limits(policy, min, UINT_MAX);
 
-	case CPUFREQ_START:
-		set_cpus_allowed(s->thread, *cpumask_of(cpu));
-		break;
-	}
+	pr_debug("CPU%u policy min after boost: %u kHz\n",
+		 cpu, policy->min);
 
 	return NOTIFY_OK;
 }
@@ -142,8 +129,7 @@ static int boost_mig_sync_thread(void *data)
 	unsigned long flags;
 
 	while(1) {
-		wait_event_interruptible(s->sync_wq, s->pending ||
-					kthread_should_stop());
+		wait_event(s->sync_wq, s->pending || kthread_should_stop());
 
 		if (kthread_should_stop())
 			break;
@@ -338,6 +324,8 @@ static int cpu_boost_init(void)
 	int cpu, ret;
 	struct cpu_sync *s;
 
+	cpufreq_register_notifier(&boost_adjust_nb, CPUFREQ_POLICY_NOTIFIER);
+
 	cpu_boost_wq = alloc_workqueue("cpuboost_wq", WQ_HIGHPRI, 0);
 	if (!cpu_boost_wq)
 		return -EFAULT;
@@ -353,13 +341,11 @@ static int cpu_boost_init(void)
 		INIT_DELAYED_WORK(&s->input_boost_rem, do_input_boost_rem);
 		s->thread = kthread_run(boost_mig_sync_thread, (void *)cpu,
 					"boost_sync/%d", cpu);
-		set_cpus_allowed(s->thread, *cpumask_of(cpu));
 	}
-	cpufreq_register_notifier(&boost_adjust_nb, CPUFREQ_POLICY_NOTIFIER);
 	atomic_notifier_chain_register(&migration_notifier_head,
 					&boost_migration_nb);
-	ret = input_register_handler(&cpuboost_input_handler);
 
+	ret = input_register_handler(&cpuboost_input_handler);
 	return 0;
 }
 late_initcall(cpu_boost_init);

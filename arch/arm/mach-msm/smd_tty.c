@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/smd_tty.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -28,7 +28,6 @@
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
 #include <linux/tty_flip.h>
-#include <linux/suspend.h>
 
 #include <mach/msm_smd.h>
 #include <mach/subsystem_restart.h>
@@ -41,7 +40,6 @@
 #define MAX_SMD_TTYS 37
 #define MAX_TTY_BUF_SIZE 2048
 #define TTY_PUSH_WS_DELAY 500
-#define TTY_PUSH_WS_POST_SUSPEND_DELAY 100
 #define MAX_RA_WAKE_LOCK_NAME_LEN 32
 #define SMD_TTY_PROBE_WAIT_TIMEOUT 3000
 #define SMD_TTY_LOG_PAGES 2
@@ -64,10 +62,6 @@ static void *smd_tty_log_ctx;
 
 static struct delayed_work smd_tty_probe_work;
 static int smd_tty_probe_done;
-
-static bool smd_tty_in_suspend;
-static bool smd_tty_read_in_suspend;
-static struct wakeup_source read_in_suspend_ws;
 
 #ifdef CONFIG_LGE_USES_SMD_DS_TTY
 static uint lge_ds_modem_wait = 20;
@@ -315,9 +309,6 @@ static void smd_tty_read(unsigned long param)
 		 */
 		__pm_wakeup_event(&info->pending_ws, TTY_PUSH_WS_DELAY);
 
-		 if (smd_tty_in_suspend)
-			smd_tty_read_in_suspend = true;
-
 		tty_flip_buffer_push(tty);
 	}
 
@@ -394,17 +385,17 @@ static void smd_tty_notify(void *priv, unsigned event)
 		tty_kref_put(tty);
 		break;
 #ifdef CONFIG_LGE_USES_SMD_DS_TTY
-		/*           
-                                                        
-                                                    
-                                                 
-                                                       
-                                                       
-                                                   
-                                                       
-                                                 
-                                     
-   */
+		/* LGE_CHANGE
+		 * At current qct smd_tty framework, if smd_tty_open()
+		 * is invoked by process before smd_tty_close() is
+		 * completely finished, smd_tty_open() may fail
+		 * because smd_tty_close() does not wait to close smd
+		 * channel from modem. To fix this situation, new SMD
+		 * notify status, SMD_EVENT_REOPEN_READY is used.
+		 * Until smd_tty receive this status, smd_tty_close()
+		 * will be wait(in fact, process will be wait).
+		 * 2011-10-12, hyunhui.park@lge.com
+		 */
 	case SMD_EVENT_REOPEN_READY:
 		/* smd channel is closed completely */
 		spin_lock_irqsave(&info->reset_lock_lha2, flags);
@@ -501,10 +492,10 @@ static int smd_tty_port_activate(struct tty_port *tport,
 		}
 
 #ifdef CONFIG_LGE_USES_SMD_DS_TTY
-		/*           
-                                                     
-                               
-   */
+		/* LGE_CHANGE
+		 * on boot, process tried to open smd0 sleeps until
+		 * modem is ready or timeout.
+		 */
 		if (n == DS_IDX) {
 			/* wait for open ready status in seconds */
 			pr_info("%s: checking DS modem status\n", __func__);
@@ -610,17 +601,17 @@ static void smd_tty_port_shutdown(struct tty_port *tport)
 
 	smd_close(info->ch);
 #ifdef CONFIG_LGE_USES_SMD_DS_TTY
-	/*           
-                                                       
-                                                   
-                                                
-                                                      
-                                                      
-                                                  
-                                                      
-                                                
-                                    
-  */
+	/* LGE_CHANGE
+	 * At current qct smd_tty framework, if smd_tty_open()
+	 * is invoked by process before smd_tty_close() is
+	 * completely finished, smd_tty_open() may fail
+	 * because smd_tty_close() does not wait to close smd
+	 * channel from modem. To fix this situation, new SMD
+	 * notify status, SMD_EVENT_REOPEN_READY is used.
+	 * Until smd_tty receive this status, smd_tty_close()
+	 * will be wait(in fact, process will be wait).
+	 * 2011-10-12, hyunhui.park@lge.com
+	 */
 	pr_info("%s: waiting to close smd %s completely\n",
 			__func__, info->ch_name);
 	/* wait for reopen ready status in seconds */
@@ -656,7 +647,7 @@ static int smd_tty_open(struct tty_struct *tty, struct file *f)
 
 static void smd_tty_close(struct tty_struct *tty, struct file *f)
 {
-	struct smd_tty_info *info = smd_tty + tty->index;
+	struct smd_tty_info *info = tty->driver_data;
 
 	tty_port_close(&info->port, tty, f);
 }
@@ -824,32 +815,6 @@ static int smd_tty_ds_probe(struct platform_device *pdev)
 }
 #endif
 
-static int smd_tty_pm_notifier(struct notifier_block *nb,
-				unsigned long event, void *unused)
-{
-	switch (event) {
-	case PM_SUSPEND_PREPARE:
-		smd_tty_read_in_suspend = false;
-		smd_tty_in_suspend = true;
-	break;
-
-	case PM_POST_SUSPEND:
-		smd_tty_in_suspend = false;
-		if (smd_tty_read_in_suspend) {
-			smd_tty_read_in_suspend = false;
-			__pm_wakeup_event(&read_in_suspend_ws,
-				TTY_PUSH_WS_POST_SUSPEND_DELAY);
-		}
-	break;
-	}
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block smd_tty_pm_nb = {
-	.notifier_call = smd_tty_pm_notifier,
-	.priority = 0,
-};
-
 /**
  * smd_tty_log_init()- Init function for IPC logging
  *
@@ -859,7 +824,7 @@ static struct notifier_block smd_tty_pm_nb = {
 static void smd_tty_log_init(void)
 {
 	smd_tty_log_ctx = ipc_log_context_create(SMD_TTY_LOG_PAGES,
-						"smd_tty", 0);
+						"smd_tty");
 	if (!smd_tty_log_ctx)
 		pr_err("%s: Unable to create IPC log", __func__);
 }
@@ -1003,11 +968,6 @@ static int smd_tty_core_init(void)
 		}
 	}
 	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
-
-	ret = register_pm_notifier(&smd_tty_pm_nb);
-	if (ret)
-		pr_err("%s: power state notif error %d\n", __func__, ret);
-
 	return 0;
 
 out:
@@ -1113,10 +1073,6 @@ static int smd_tty_devicetree_init(struct platform_device *pdev)
 	}
 	INIT_DELAYED_WORK(&loopback_work, loopback_probe_worker);
 
-	ret = register_pm_notifier(&smd_tty_pm_nb);
-	if (ret)
-		pr_err("%s: power state notif error %d\n", __func__, ret);
-
 	return 0;
 
 error:
@@ -1204,7 +1160,6 @@ static int __init smd_tty_init(void)
 	schedule_delayed_work(&smd_tty_probe_work,
 				msecs_to_jiffies(SMD_TTY_PROBE_WAIT_TIMEOUT));
 
-	wakeup_source_init(&read_in_suspend_ws, "SMDTTY_READ_IN_SUSPEND");
 	return 0;
 }
 

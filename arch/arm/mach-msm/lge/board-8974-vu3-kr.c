@@ -45,8 +45,8 @@
 #include "../clock.h"
 #include "../devices.h"
 #include "../spm.h"
-#include "../pm.h"
 #include "../modem_notifier.h"
+#include "../pm.h"
 #include "../platsmp.h"
 #include <mach/board_lge.h>
 

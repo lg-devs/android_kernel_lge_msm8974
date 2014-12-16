@@ -90,13 +90,9 @@ static struct sensors_classdev sensors_cdev = {
 	.max_range = "19.6",
 	.resolution = "0.01",
 	.sensor_power = "0.2",
-	.min_delay = 2000,	/* microsecond */
+	.min_delay = 2000,
 	.fifo_reserved_event_count = 0,
 	.fifo_max_event_count = 0,
-	.enabled = 0,
-	.delay_msec = 200,	/* millisecond */
-	.sensors_enable = NULL,
-	.sensors_poll_delay = NULL,
 };
 
 static const struct {
@@ -128,7 +124,6 @@ struct kxtj9_data {
 	bool	power_enabled;
 	struct regulator *vdd;
 	struct regulator *vio;
-	struct sensors_classdev cdev;
 };
 
 static int kxtj9_i2c_read(struct kxtj9_data *tj9, u8 addr, u8 *data, int len)
@@ -491,36 +486,6 @@ static int __devinit kxtj9_setup_input_device(struct kxtj9_data *tj9)
 	return 0;
 }
 
-static int kxtj9_enable_set(struct sensors_classdev *sensors_cdev,
-					unsigned int enabled)
-{
-	struct kxtj9_data *tj9 = container_of(sensors_cdev,
-					struct kxtj9_data, cdev);
-	struct input_dev *input_dev = tj9->input_dev;
-
-	mutex_lock(&input_dev->mutex);
-
-	if (enabled == 0) {
-		disable_irq(tj9->client->irq);
-		kxtj9_disable(tj9);
-		tj9->enable = false;
-	} else if (enabled == 1) {
-		if (!kxtj9_enable(tj9)) {
-			enable_irq(tj9->client->irq);
-			tj9->enable = true;
-		}
-	} else {
-		dev_err(&tj9->client->dev,
-			"Invalid value of input, input=%d\n", enabled);
-		mutex_unlock(&input_dev->mutex);
-		return -EINVAL;
-	}
-
-	mutex_unlock(&input_dev->mutex);
-
-	return 0;
-}
-
 static ssize_t kxtj9_enable_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -536,16 +501,31 @@ static ssize_t kxtj9_enable_store(struct device *dev,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct kxtj9_data *tj9 = i2c_get_clientdata(client);
+	struct input_dev *input_dev = tj9->input_dev;
 	unsigned long data;
 	int error;
 
 	error = kstrtoul(buf, 10, &data);
-	if (error < 0)
+	if (error)
 		return error;
+	mutex_lock(&input_dev->mutex);
 
-	error = kxtj9_enable_set(&tj9->cdev, data);
-	if (error < 0)
-		return error;
+	if (data == 0) {
+		disable_irq(client->irq);
+		kxtj9_disable(tj9);
+		tj9->enable = false;
+	} else if (data == 1) {
+		if (!kxtj9_enable(tj9)) {
+			enable_irq(client->irq);
+			tj9->enable = true;
+		}
+	} else {
+		dev_err(&tj9->client->dev,
+			"Invalid value of input, input=%ld\n", data);
+	}
+
+	mutex_unlock(&input_dev->mutex);
+
 	return count;
 }
 
@@ -562,29 +542,6 @@ static DEVICE_ATTR(enable, S_IRUGO|S_IWUSR|S_IWGRP,
  * will be responsible for retrieving data from the input node at the desired
  * interval.
  */
-static int kxtj9_poll_delay_set(struct sensors_classdev *sensors_cdev,
-					unsigned int delay_msec)
-{
-	struct kxtj9_data *tj9 = container_of(sensors_cdev,
-					struct kxtj9_data, cdev);
-	struct input_dev *input_dev = tj9->input_dev;
-
-	/* Lock the device to prevent races with open/close (and itself) */
-	mutex_lock(&input_dev->mutex);
-
-	if (tj9->enable)
-		disable_irq(tj9->client->irq);
-
-	tj9->last_poll_interval = max(delay_msec, tj9->pdata.min_interval);
-
-	if (tj9->enable) {
-		kxtj9_update_odr(tj9, tj9->last_poll_interval);
-		enable_irq(tj9->client->irq);
-	}
-	mutex_unlock(&input_dev->mutex);
-
-	return 0;
-}
 
 /* Returns currently selected poll interval (in ms) */
 static ssize_t kxtj9_get_poll_delay(struct device *dev,
@@ -603,6 +560,7 @@ static ssize_t kxtj9_set_poll_delay(struct device *dev,
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct kxtj9_data *tj9 = i2c_get_clientdata(client);
+	struct input_dev *input_dev = tj9->input_dev;
 	unsigned int interval;
 	int error;
 
@@ -610,9 +568,24 @@ static ssize_t kxtj9_set_poll_delay(struct device *dev,
 	if (error < 0)
 		return error;
 
-	error = kxtj9_poll_delay_set(&tj9->cdev, interval);
-	if (error < 0)
-		return error;
+	/* Lock the device to prevent races with open/close (and itself) */
+	mutex_lock(&input_dev->mutex);
+
+	if (tj9->enable)
+		disable_irq(client->irq);
+
+	/*
+	 * Set current interval to the greater of the minimum interval or
+	 * the requested interval
+	 */
+	tj9->last_poll_interval = max(interval, tj9->pdata.min_interval);
+
+	if (tj9->enable) {
+		kxtj9_update_odr(tj9, tj9->last_poll_interval);
+		enable_irq(client->irq);
+	}
+	mutex_unlock(&input_dev->mutex);
+
 	return count;
 }
 
@@ -628,6 +601,7 @@ static struct attribute *kxtj9_attributes[] = {
 static struct attribute_group kxtj9_attribute_group = {
 	.attrs = kxtj9_attributes
 };
+
 
 #ifdef CONFIG_INPUT_KXTJ9_POLLED_MODE
 static void kxtj9_poll(struct input_polled_dev *dev)
@@ -884,13 +858,7 @@ static int __devinit kxtj9_probe(struct i2c_client *client,
 	tj9->ctrl_reg1 = tj9->pdata.res_ctl | tj9->pdata.g_range;
 	tj9->last_poll_interval = tj9->pdata.init_interval;
 
-	tj9->cdev = sensors_cdev;
-	/* The min_delay is used by userspace and the unit is microsecond. */
-	tj9->cdev.min_delay = tj9->pdata.min_interval * 1000;
-	tj9->cdev.delay_msec = tj9->pdata.init_interval;
-	tj9->cdev.sensors_enable = kxtj9_enable_set;
-	tj9->cdev.sensors_poll_delay = kxtj9_poll_delay_set;
-	err = sensors_classdev_register(&client->dev, &tj9->cdev);
+	err = sensors_classdev_register(&client->dev, &sensors_cdev);
 	if (err) {
 		dev_err(&client->dev, "class device create failed: %d\n", err);
 		goto err_power_off;
@@ -903,7 +871,7 @@ static int __devinit kxtj9_probe(struct i2c_client *client,
 
 		err = kxtj9_setup_input_device(tj9);
 		if (err)
-			goto err_class_sysfs;
+			goto err_power_off;
 
 		err = request_threaded_irq(client->irq, NULL, kxtj9_isr,
 					   IRQF_TRIGGER_RISING | IRQF_ONESHOT,
@@ -924,7 +892,7 @@ static int __devinit kxtj9_probe(struct i2c_client *client,
 	} else {
 		err = kxtj9_setup_polled_device(tj9);
 		if (err)
-			goto err_class_sysfs;
+			goto err_power_off;
 	}
 
 	dev_dbg(&client->dev, "%s: kxtj9_probe OK.\n", __func__);
@@ -935,8 +903,6 @@ err_free_irq:
 	free_irq(client->irq, tj9);
 err_destroy_input:
 	input_unregister_device(tj9->input_dev);
-err_class_sysfs:
-	sensors_classdev_unregister(&tj9->cdev);
 err_power_off:
 	kxtj9_device_power_off(tj9);
 err_power_deinit:

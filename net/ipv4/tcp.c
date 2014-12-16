@@ -294,12 +294,6 @@ int sysctl_tcp_rmem[3] __read_mostly;
 EXPORT_SYMBOL(sysctl_tcp_rmem);
 EXPORT_SYMBOL(sysctl_tcp_wmem);
 
-int sysctl_tcp_delack_seg __read_mostly = TCP_DELACK_SEG;
-EXPORT_SYMBOL(sysctl_tcp_delack_seg);
-
-int sysctl_tcp_use_userconfig __read_mostly;
-EXPORT_SYMBOL(sysctl_tcp_use_userconfig);
-
 atomic_long_t tcp_memory_allocated;	/* Current allocated memory. */
 EXPORT_SYMBOL(tcp_memory_allocated);
 
@@ -491,12 +485,14 @@ int tcp_ioctl(struct sock *sk, int cmd, unsigned long arg)
 			 !tp->urg_data ||
 			 before(tp->urg_seq, tp->copied_seq) ||
 			 !before(tp->urg_seq, tp->rcv_nxt)) {
+			struct sk_buff *skb;
 
 			answ = tp->rcv_nxt - tp->copied_seq;
 
-			/* Subtract 1, if FIN was received */
-			if (answ && sock_flag(sk, SOCK_DONE))
-				answ--;
+			/* Subtract 1, if FIN is in queue. */
+			skb = skb_peek_tail(&sk->sk_receive_queue);
+			if (answ && skb)
+				answ -= tcp_hdr(skb)->fin;
 		} else
 			answ = tp->urg_seq - tp->copied_seq;
 		release_sock(sk);
@@ -1219,11 +1215,8 @@ void tcp_cleanup_rbuf(struct sock *sk, int copied)
 		   /* Delayed ACKs frequently hit locked sockets during bulk
 		    * receive. */
 		if (icsk->icsk_ack.blocked ||
-		    /* Once-per-sysctl_tcp_delack_seg segments
-			  * ACK was not sent by tcp_input.c
-			  */
-		    tp->rcv_nxt - tp->rcv_wup > (icsk->icsk_ack.rcv_mss) *
-						sysctl_tcp_delack_seg ||
+		    /* Once-per-two-segments ACK was not sent by tcp_input.c */
+		    tp->rcv_nxt - tp->rcv_wup > icsk->icsk_ack.rcv_mss ||
 		    /*
 		     * If this read emptied read buffer, we send ACK, if
 		     * connection is not bidirectional, user drained
@@ -3441,9 +3434,11 @@ restart:
 
 			sock_hold(sk);
 			spin_unlock_bh(lock);
-/*                                                                              */
+/* 2013-07-05 indal.choi@lge.com LGP_DATA_KERNEL_CRASHFIX_TCP_DUKE_ADDR [START] */
+#ifdef CONFIG_MACH_LGE
 			lock_sock(sk);
-/*                                                                            */
+#endif
+/* 2013-07-05 indal.choi@lge.com LGP_DATA_KERNEL_CRASHFIX_TCP_DUKE_ADDR [END] */
 			local_bh_disable();
 			bh_lock_sock(sk);
 			sk->sk_err = ETIMEDOUT;
@@ -3452,9 +3447,11 @@ restart:
 			tcp_done(sk);
 			bh_unlock_sock(sk);
 			local_bh_enable();
-/*                                                                              */
+/* 2013-07-05 indal.choi@lge.com LGP_DATA_KERNEL_CRASHFIX_TCP_DUKE_ADDR [START] */
+#ifdef CONFIG_MACH_LGE
 			release_sock(sk);
-/*                                                                            */
+#endif
+/* 2013-07-05 indal.choi@lge.com LGP_DATA_KERNEL_CRASHFIX_TCP_DUKE_ADDR [END] */
 			sock_put(sk);
 
 			goto restart;

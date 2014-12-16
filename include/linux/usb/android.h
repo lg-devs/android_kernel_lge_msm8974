@@ -29,7 +29,6 @@ struct android_usb_platform_data {
 	bool internal_ums;
 	char streaming_func[MAX_STREAMING_FUNCS][FUNC_NAME_LEN];
 	int  streaming_func_count;
-	u32 uicc_nluns;
 };
 
 #ifndef CONFIG_TARGET_CORE
