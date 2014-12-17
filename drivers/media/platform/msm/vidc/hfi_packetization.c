@@ -1340,7 +1340,7 @@ int create_pkt_cmd_session_set_property(
 			&pkt->rg_property_data[1];
 		hfi->enable = extra->enable;
 		if (extra->index == HAL_EXTRADATA_ASPECT_RATIO)
-			index = MSM_VIDC_EXTRADATA_ASPECT_RATIO;
+			index = EXTRADATA_ASPECT_RATIO;
 		else
 			index = get_hfi_extradata_index(extra->index);
 		if (index)
@@ -1498,48 +1498,6 @@ int create_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(struct hfi_initial_quantization);
 		break;
 	}
-	case HAL_PARAM_VENC_HIER_P_MAX_ENH_LAYERS:
-	{
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_HIER_P_MAX_NUM_ENH_LAYER;
-		pkt->rg_property_data[1] = *(u32 *)pdata;
-		pkt->size += sizeof(u32) * 2;
-		break;
-	}
-	case HAL_CONFIG_VENC_HIER_P_NUM_FRAMES:
-	{
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_CONFIG_VENC_HIER_P_ENH_LAYER;
-		pkt->rg_property_data[1] = *(u32 *)pdata;
-		pkt->size += sizeof(u32) * 2;
-		break;
-	}
-	case HAL_PARAM_VENC_VPX_ERROR_RESILIENCE_MODE:
-	{
-		struct hfi_enable *hfi;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_VPX_ERROR_RESILIENCE_MODE;
-		hfi = (struct hfi_enable *)&pkt->rg_property_data[1];
-		hfi->enable = ((struct hfi_enable *)pdata)->enable;
-		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
-		break;
-	}
-    case HAL_PARAM_VENC_ENABLE_INITIAL_QP:
-    {
-        struct hfi_initial_quantization *hfi;
-        struct hal_initial_quantization *quant = pdata;
-        pkt->rg_property_data[0] =
-                HFI_PROPERTY_PARAM_VENC_INITIAL_QP;
-        hfi = (struct hfi_initial_quantization *)
-                &pkt->rg_property_data[1];
-        hfi->init_qp_enable = quant->init_qp_enable;
-        hfi->qp_i = quant->qpi;
-        hfi->qp_p = quant->qpp;
-        hfi->qp_b = quant->qpb;
-        pkt->size += sizeof(u32) +
-                sizeof(struct hfi_initial_quantization);
-        break;
-    }
 	/* FOLLOWING PROPERTIES ARE NOT IMPLEMENTED IN CORE YET */
 	case HAL_CONFIG_BUFFER_REQUIREMENTS:
 	case HAL_CONFIG_PRIORITY:

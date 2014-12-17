@@ -96,14 +96,16 @@ int msm_vidc_smem_get_domain_partition(void *instance,
 		int *domain_num, int *partition_num);
 void *msm_vidc_smem_get_client(void *instance);
 #endif
+
 struct msm_vidc_extradata_header {
-        unsigned int size;
-        unsigned int:32; /** Keeping binary compatibility */
-        unsigned int:32; /* with firmware and OpenMAX IL **/
-        unsigned int type; /* msm_vidc_extradata_type */
-        unsigned int data_size;
-        unsigned char data[1];
+	unsigned int size;
+	unsigned int:32; /** Keeping binary compatibility */
+	unsigned int:32; /* with firmware and OpenMAX IL **/
+	unsigned int type; /* msm_vidc_extradata_type */
+	unsigned int data_size;
+	unsigned char data[1];
 };
+
 struct msm_vidc_interlace_payload {
 	unsigned int format;
 };
@@ -120,6 +122,7 @@ struct msm_vidc_concealmb_payload {
 struct msm_vidc_recoverysei_payload {
 	unsigned int flags;
 };
+
 struct msm_vidc_aspect_ratio_payload {
 	unsigned int size;
 	unsigned int version;
@@ -127,6 +130,7 @@ struct msm_vidc_aspect_ratio_payload {
 	unsigned int aspect_width;
 	unsigned int aspect_height;
 };
+
 struct msm_vidc_mpeg2_seqdisp_payload {
 	unsigned int video_format;
 	bool color_descp;
@@ -136,30 +140,7 @@ struct msm_vidc_mpeg2_seqdisp_payload {
 	unsigned int disp_width;
 	unsigned int disp_height;
 };
-struct msm_vidc_input_crop_payload {
-        unsigned int size;
-        unsigned int version;
-        unsigned int port_index;
-        unsigned int left;
-        unsigned int top;
-        unsigned int width;
-        unsigned int height;
-};
-struct msm_vidc_digital_zoom_payload {
-        unsigned int size;
-        unsigned int version;
-        unsigned int port_index;
-        unsigned int zoom_width;
-        unsigned int zoom_height;
-};
-struct msm_vidc_extradata_index {
-        unsigned int type;
-        union {
-                struct msm_vidc_input_crop_payload input_crop;
-                struct msm_vidc_digital_zoom_payload digital_zoom;
-                struct msm_vidc_aspect_ratio_payload aspect_ratio;
-        };
-};
+
 struct msm_vidc_panscan_window {
 	unsigned int panscan_height_offset;
 	unsigned int panscan_width_offset;
@@ -219,8 +200,6 @@ enum msm_vidc_extradata_type {
 	EXTRADATA_FRAME_QP = 0x0000000F,
 	EXTRADATA_FRAME_BITS_INFO = 0x00000010,
 	EXTRADATA_MULTISLICE_INFO = 0x7F100000,
-    EXTRADATA_INPUT_CROP = 0x0700000E,
-    EXTRADATA_DIGITAL_ZOOM = 0x07000010,
 	EXTRADATA_NUM_CONCEALED_MB = 0x7F100001,
 	EXTRADATA_INDEX = 0x7F100002,
 	EXTRADATA_ASPECT_RATIO = 0x7F100003,
@@ -229,16 +208,16 @@ enum msm_vidc_extradata_type {
 	EXTRADATA_METADATA_MBI = 0x7F100005,
 };
 enum msm_vidc_interlace_type {
-	MSM_VIDC_INTERLACE_FRAME_PROGRESSIVE = 0x01,
-	MSM_VIDC_INTERLACE_INTERLEAVE_FRAME_TOPFIELDFIRST = 0x02,
-	MSM_VIDC_INTERLACE_INTERLEAVE_FRAME_BOTTOMFIELDFIRST = 0x04,
-	MSM_VIDC_INTERLACE_FRAME_TOPFIELDFIRST = 0x08,
-	MSM_VIDC_INTERLACE_FRAME_BOTTOMFIELDFIRST = 0x10,
+	INTERLACE_FRAME_PROGRESSIVE = 0x01,
+	INTERLACE_INTERLEAVE_FRAME_TOPFIELDFIRST = 0x02,
+	INTERLACE_INTERLEAVE_FRAME_BOTTOMFIELDFIRST = 0x04,
+	INTERLACE_FRAME_TOPFIELDFIRST = 0x08,
+	INTERLACE_FRAME_BOTTOMFIELDFIRST = 0x10,
 };
 enum msm_vidc_recovery_sei {
-	MSM_VIDC_FRAME_RECONSTRUCTION_INCORRECT = 0x0,
-	MSM_VIDC_FRAME_RECONSTRUCTION_CORRECT = 0x01,
-	MSM_VIDC_FRAME_RECONSTRUCTION_APPROXIMATELY_CORRECT = 0x02,
+	FRAME_RECONSTRUCTION_INCORRECT = 0x0,
+	FRAME_RECONSTRUCTION_CORRECT = 0x01,
+	FRAME_RECONSTRUCTION_APPROXIMATELY_CORRECT = 0x02,
 };
 
 enum msm_vidc_userdata_type {
