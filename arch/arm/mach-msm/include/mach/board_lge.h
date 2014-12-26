@@ -97,10 +97,6 @@ int lge_get_factory_boot(void);
 int get_lge_frst_status(void);
 
 #if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
-*/
 struct kcal_data {
 		int red;
 		int green;

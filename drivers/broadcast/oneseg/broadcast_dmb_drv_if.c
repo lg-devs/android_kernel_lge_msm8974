@@ -396,12 +396,12 @@ static long broadcast_dmb_ioctl_control(struct file *filep, unsigned int cmd,	un
 		printk(KERN_DEBUG"LGE_BROADCAST_DMB_IOCTL_RESYNC result = %d \n", rc);
 		break;
 	case LGE_BROADCAST_DMB_IOCTL_DETECT_SYNC:
-		//                                                                                                  
+		//printk(KERN_DEBUG"[1seg][broadcast_dmb_ioctl_control][LGE_BROADCAST_DMB_IOCTL_DETECT_SYNC][s]\n");
 		rc = broadcast_dmb_detect_sync(argp);
-		//                                                                           
+		//printk(KERN_DEBUG"LGE_BROADCAST_DMB_IOCTL_DETECT_SYNC result = %d \n", rc);
 		break;
 	case LGE_BROADCAST_DMB_IOCTL_GET_SIG_INFO:
-		//                                                                                                   
+		//printk(KERN_DEBUG"[1seg][broadcast_dmb_ioctl_control][LGE_BROADCAST_DMB_IOCTL_GET_SIG_INFO][s]\n");
 		rc = broadcast_dmb_get_sig_info(argp);
 		break;
 	case LGE_BROADCAST_DMB_IOCTL_GET_CH_INFO:
@@ -577,7 +577,6 @@ int broadcast_dmb_drv_start(void)
 	if (!broadcast_dmb_class) {
 
 		broadcast_dmb_class = class_create(THIS_MODULE, DEVICE_NAME);
-
 		if (IS_ERR(broadcast_dmb_class)) {
 			rc = PTR_ERR(broadcast_dmb_class);
 			pr_err("broadcast_dmb_class: create device class failed: %d\n",
@@ -586,7 +585,6 @@ int broadcast_dmb_drv_start(void)
 		}
 
 		rc = alloc_chrdev_region(&broadcast_dmb_dev, 0, BROADCAST_DMB_NUM_DEVS, DEVICE_NAME);
-		
 		printk(KERN_DEBUG"broadcast_dmb_drv_start add add%d broadcast_dmb_dev = %d \n", rc, broadcast_dmb_dev);
 		if (rc < 0) {
 			pr_err("broadcast_class: failed to allocate chrdev: %d\n",

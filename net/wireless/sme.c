@@ -691,12 +691,12 @@ void __cfg80211_disconnected(struct net_device *dev, const u8 *ie,
 		return;
 
 #ifndef CONFIG_CFG80211_ALLOW_RECONNECT_VU3
-	#ifndef CONFIG_CFG80211_ALLOW_RECONNECT
-	//                                                                                     
-		//if (wdev->sme_state != CFG80211_SME_CONNECTED)
-		if ((wdev->sme_state != CFG80211_SME_CONNECTED) 
-			&&  (reason != WLAN_REASON_UNSPECIFIED))
-	//                                                                                     
+#ifndef CONFIG_CFG80211_ALLOW_RECONNECT
+//                                                                                     
+	//if (wdev->sme_state != CFG80211_SME_CONNECTED)
+	if ((wdev->sme_state != CFG80211_SME_CONNECTED) 
+		&&  (reason != WLAN_REASON_UNSPECIFIED))
+//                                                                                     
 		return;
 	#endif
 #endif

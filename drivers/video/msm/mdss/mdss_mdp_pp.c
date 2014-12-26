@@ -23,9 +23,9 @@
 #include <mach/msm_bus_board.h>
 
 #if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
+/* LGE_CHANGE_S
+* change code for LCD KCAL
+* 2013-05-08, seojin.lee@lge.com
 */
 #include <mach/board_lge.h>
 extern int g_kcal_r;
@@ -133,7 +133,7 @@ struct mdp_csc_cfg dmb_csc_convert = {
 	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
 #endif
 };
-#endif /*               */
+#endif /* LGE_BROADCAST */
 
 #if defined(CONFIG_LGE_BROADCAST_ONESEG)
 struct mdp_csc_cfg dmb_csc_convert = {
@@ -173,7 +173,7 @@ struct mdp_csc_cfg dmb_csc_convert = {
 	{ 0x0, 0xff, 0x0, 0xff, 0x0, 0xff,},
 #endif
 };
-#endif /*                      */
+#endif /* LGE_BROADCAST ONESEG */
 #define CSC_MV_OFF	0x0
 #define CSC_BV_OFF	0x2C
 #define CSC_LV_OFF	0x14
@@ -383,8 +383,8 @@ struct mdss_pp_res_type {
 	u32 enhist_lut[MDSS_BLOCK_DISP_NUM][ENHIST_LUT_ENTRIES];
 	struct mdp_pa_cfg pa_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pa_v2_data pa_v2_disp_cfg[MDSS_BLOCK_DISP_NUM];
-	u32 six_zone_lut_curve_p0[MDSS_BLOCK_DISP_NUM][SIX_ZONE_LUT_ENTRIES];
-	u32 six_zone_lut_curve_p1[MDSS_BLOCK_DISP_NUM][SIX_ZONE_LUT_ENTRIES];
+	u32 six_zone_lut_curve_p0[MDSS_BLOCK_DISP_NUM][MDP_SIX_ZONE_LUT_SIZE];
+	u32 six_zone_lut_curve_p1[MDSS_BLOCK_DISP_NUM][MDP_SIX_ZONE_LUT_SIZE];
 	struct mdp_pcc_cfg_data pcc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_igc_lut_data igc_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	struct mdp_pgc_lut_data argc_disp_cfg[MDSS_BLOCK_DISP_NUM];
@@ -439,7 +439,7 @@ int pp_set_dmb_status(int flag)
 	dmb_status = flag;
 	return 0;
 }
-#endif /*               */
+#endif /* LGE_BROADCAST */
 
 static u32 pp_hist_read(char __iomem *v_addr,
 				struct pp_hist_col_info *hist_info);
@@ -766,7 +766,7 @@ static void pp_update_pa_v2_six_zone_regs(char __iomem *addr,
 				data, addr);
 
 		/* Remove Index Update */
-		for (i = 1; i < SIX_ZONE_LUT_ENTRIES; i++) {
+		for (i = 1; i < MDP_SIX_ZONE_LUT_SIZE; i++) {
 			addr += 4;
 			writel_relaxed(pa_v2_config->six_zone_curve_p1[i],
 					addr);
@@ -943,7 +943,7 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 			} else {
 				mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num, 1, MDSS_MDP_CSC_YUV2RGB);
 			}
-#endif /*               */
+#endif /* LGE_BROADCAST */
 		}
 	}
 
@@ -997,7 +997,7 @@ static int pp_vig_pipe_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 		}
 	}
 
-	*op = opmode;
+	*op |= opmode;
 
 	return 0;
 }
@@ -1028,12 +1028,15 @@ static void pp_update_pa_v2_vig_opmode(struct pp_sts_type *pp_sts,
 static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 {
 	u32 scale_config = 0;
-	u32 phasex_step = 0, phasey_step = 0;
+	int init_phasex = 0, init_phasey = 0;
+	int phasex_step = 0, phasey_step = 0;
 	u32 chroma_sample;
 	u32 filter_mode;
 	struct mdss_data_type *mdata;
 	u32 src_w, src_h;
 
+	pr_debug("pipe=%d, change pxl ext=%d\n", pipe->num,
+			pipe->scale.enable_pxl_ext);
 	mdata = mdss_mdp_get_mdata();
 	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_102 && pipe->src_fmt->is_yuv)
 		filter_mode = MDSS_MDP_SCALE_FILTER_CA;
@@ -1080,7 +1083,8 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 	if ((src_h != pipe->dst.h) ||
 	    (pipe->pp_res.pp_sts.sharp_sts & PP_STS_ENABLE) ||
 	    (chroma_sample == MDSS_MDP_CHROMA_420) ||
-	    (chroma_sample == MDSS_MDP_CHROMA_H1V2)) {
+	    (chroma_sample == MDSS_MDP_CHROMA_H1V2) ||
+	    pipe->scale.enable_pxl_ext) {
 		pr_debug("scale y - src_h=%d dst_h=%d\n", src_h, pipe->dst.h);
 
 		if ((src_h / MAX_DOWNSCALE_RATIO) > pipe->dst.h) {
@@ -1090,7 +1094,8 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 		}
 
 		scale_config |= MDSS_MDP_SCALEY_EN;
-		phasey_step = pipe->phase_step_y;
+		phasey_step = pipe->scale.phase_step_y[0];
+		init_phasey = pipe->scale.init_phase_y[0];
 
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
 			u32 chroma_shift = 0;
@@ -1099,11 +1104,11 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 			    (chroma_sample == MDSS_MDP_CHROMA_H1V2)))
 				chroma_shift = 1; /* 2x upsample chroma */
 
-			if (src_h <= pipe->dst.h) {
+			if (src_h <= pipe->dst.h)
 				scale_config |= /* G/Y, A */
 					(filter_mode << 10) |
 					(MDSS_MDP_SCALE_FILTER_BIL << 18);
-			} else
+			else
 				scale_config |= /* G/Y, A */
 					(MDSS_MDP_SCALE_FILTER_PCMN << 10) |
 					(MDSS_MDP_SCALE_FILTER_PCMN << 18);
@@ -1115,6 +1120,8 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 				scale_config |= /* CrCb */
 					(MDSS_MDP_SCALE_FILTER_PCMN << 14);
 
+			writel_relaxed(init_phasey, pipe->base +
+				MDSS_MDP_REG_VIG_QSEED2_C12_INIT_PHASEY);
 			writel_relaxed(phasey_step >> chroma_shift, pipe->base +
 				MDSS_MDP_REG_VIG_QSEED2_C12_PHASESTEPY);
 		} else {
@@ -1136,7 +1143,8 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 	if ((src_w != pipe->dst.w) ||
 	    (pipe->pp_res.pp_sts.sharp_sts & PP_STS_ENABLE) ||
 	    (chroma_sample == MDSS_MDP_CHROMA_420) ||
-	    (chroma_sample == MDSS_MDP_CHROMA_H2V1)) {
+	    (chroma_sample == MDSS_MDP_CHROMA_H2V1) ||
+	    pipe->scale.enable_pxl_ext) {
 		pr_debug("scale x - src_w=%d dst_w=%d\n", src_w, pipe->dst.w);
 
 		if ((src_w / MAX_DOWNSCALE_RATIO) > pipe->dst.w) {
@@ -1146,7 +1154,8 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 		}
 
 		scale_config |= MDSS_MDP_SCALEX_EN;
-		phasex_step = pipe->phase_step_x;
+		init_phasex = pipe->scale.init_phase_x[0];
+		phasex_step = pipe->scale.phase_step_x[0];
 
 		if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
 			u32 chroma_shift = 0;
@@ -1156,11 +1165,11 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 			    (chroma_sample == MDSS_MDP_CHROMA_H2V1)))
 				chroma_shift = 1; /* 2x upsample chroma */
 
-			if (src_w <= pipe->dst.w) {
+			if (src_w <= pipe->dst.w)
 				scale_config |= /* G/Y, A */
 					(filter_mode << 8) |
 					(MDSS_MDP_SCALE_FILTER_BIL << 16);
-			} else
+			else
 				scale_config |= /* G/Y, A */
 					(MDSS_MDP_SCALE_FILTER_PCMN << 8) |
 					(MDSS_MDP_SCALE_FILTER_PCMN << 16);
@@ -1172,6 +1181,8 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 				scale_config |= /* CrCb */
 					(MDSS_MDP_SCALE_FILTER_PCMN << 12);
 
+			writel_relaxed(init_phasex, pipe->base +
+				MDSS_MDP_REG_VIG_QSEED2_C12_INIT_PHASEX);
 			writel_relaxed(phasex_step >> chroma_shift, pipe->base +
 				MDSS_MDP_REG_VIG_QSEED2_C12_PHASESTEPX);
 		} else {
@@ -1190,12 +1201,44 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 		}
 	}
 
+	if (pipe->scale.enable_pxl_ext &&
+		pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
+
+		/*program x,y initial phase and phase step*/
+		writel_relaxed(pipe->scale.init_phase_x[0],
+			pipe->base + MDSS_MDP_REG_VIG_QSEED2_C03_INIT_PHASEX);
+		writel_relaxed(pipe->scale.phase_step_x[0],
+			pipe->base + MDSS_MDP_REG_VIG_QSEED2_C03_PHASESTEPX);
+		writel_relaxed(pipe->scale.init_phase_x[1],
+			pipe->base + MDSS_MDP_REG_VIG_QSEED2_C12_INIT_PHASEX);
+		writel_relaxed(pipe->scale.phase_step_x[1],
+			pipe->base + MDSS_MDP_REG_VIG_QSEED2_C12_PHASESTEPX);
+
+		writel_relaxed(pipe->scale.init_phase_y[0],
+			pipe->base + MDSS_MDP_REG_VIG_QSEED2_C03_INIT_PHASEY);
+		writel_relaxed(pipe->scale.phase_step_y[0],
+			pipe->base + MDSS_MDP_REG_VIG_QSEED2_C03_PHASESTEPY);
+		writel_relaxed(pipe->scale.init_phase_y[1],
+			pipe->base + MDSS_MDP_REG_VIG_QSEED2_C12_INIT_PHASEY);
+		writel_relaxed(pipe->scale.phase_step_y[1],
+			pipe->base + MDSS_MDP_REG_VIG_QSEED2_C12_PHASESTEPY);
+
+		/*program pixel extn values for the SSPP*/
+		mdss_mdp_pipe_program_pixel_extn(pipe);
+	} else {
+		writel_relaxed(phasex_step, pipe->base +
+		   MDSS_MDP_REG_SCALE_PHASE_STEP_X);
+		writel_relaxed(phasey_step, pipe->base +
+		   MDSS_MDP_REG_SCALE_PHASE_STEP_Y);
+		writel_relaxed(init_phasex, pipe->base +
+			MDSS_MDP_REG_SCALE_INIT_PHASE_X);
+		writel_relaxed(init_phasey, pipe->base +
+			MDSS_MDP_REG_SCALE_INIT_PHASE_Y);
+	}
+
 	writel_relaxed(scale_config, pipe->base +
 	   MDSS_MDP_REG_SCALE_CONFIG);
-	writel_relaxed(phasex_step, pipe->base +
-	   MDSS_MDP_REG_SCALE_PHASE_STEP_X);
-	writel_relaxed(phasey_step, pipe->base +
-	   MDSS_MDP_REG_SCALE_PHASE_STEP_Y);
+
 	return 0;
 }
 
@@ -1395,10 +1438,7 @@ static int pp_histogram_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 		mutex_lock(&hist_info->hist_mutex);
 		spin_lock_irqsave(&hist_info->hist_lock, flag);
 		col_state = hist_info->col_state;
-		if (hist_info->is_kick_ready &&
-			((col_state == HIST_IDLE) ||
-			((false == hist_info->read_request) &&
-				col_state == HIST_READY))) {
+		if (col_state == HIST_IDLE) {
 			/* Kick off collection */
 			writel_relaxed(1, base + kick_base);
 			hist_info->col_state = HIST_START;
@@ -2068,9 +2108,9 @@ int mdss_mdp_pp_init(struct device *dev)
 
 	}
 #if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
+/* LGE_CHANGE_S
+* change code for LCD KCAL
+* 2013-05-08, seojin.lee@lge.com
 */
 	if (!ret) {
 		mdss_mdp_pp_argc();
@@ -2244,10 +2284,13 @@ static int pp_read_pa_v2_regs(char __iomem *addr,
 
 	/* Six zone LUT and thresh data */
 	if (pa_v2_config->flags & MDP_PP_PA_SIX_ZONE_ENABLE) {
+		if (pa_v2_config->six_zone_len != MDP_SIX_ZONE_LUT_SIZE)
+			return -EINVAL;
+
 		data = (3 << 25);
 		writel_relaxed(data, addr);
 
-		for (i = 0; i < SIX_ZONE_LUT_ENTRIES; i++) {
+		for (i = 0; i < MDP_SIX_ZONE_LUT_SIZE; i++) {
 			addr += 4;
 			mdss_pp_res->six_zone_lut_curve_p1[disp_num][i] =
 				readl_relaxed(addr);
@@ -2258,13 +2301,13 @@ static int pp_read_pa_v2_regs(char __iomem *addr,
 
 		if (copy_to_user(pa_v2_config->six_zone_curve_p0,
 			&mdss_pp_res->six_zone_lut_curve_p0[disp_num][0],
-			SIX_ZONE_LUT_ENTRIES * sizeof(u32))) {
+			pa_v2_config->six_zone_len * sizeof(u32))) {
 			return -EFAULT;
 		}
 
 		if (copy_to_user(pa_v2_config->six_zone_curve_p1,
 			&mdss_pp_res->six_zone_lut_curve_p1[disp_num][0],
-			SIX_ZONE_LUT_ENTRIES * sizeof(u32))) {
+			pa_v2_config->six_zone_len * sizeof(u32))) {
 			return -EFAULT;
 		}
 
@@ -2311,12 +2354,12 @@ static int pp_copy_pa_six_zone_lut(struct mdp_pa_v2_cfg_data *pa_v2_config,
 {
 	if (copy_from_user(&mdss_pp_res->six_zone_lut_curve_p0[disp_num][0],
 			pa_v2_config->pa_v2_data.six_zone_curve_p0,
-			SIX_ZONE_LUT_ENTRIES * sizeof(u32))) {
+			pa_v2_config->pa_v2_data.six_zone_len * sizeof(u32))) {
 		return -EFAULT;
 	}
 	if (copy_from_user(&mdss_pp_res->six_zone_lut_curve_p1[disp_num][0],
 			pa_v2_config->pa_v2_data.six_zone_curve_p1,
-			SIX_ZONE_LUT_ENTRIES * sizeof(u32))) {
+			pa_v2_config->pa_v2_data.six_zone_len * sizeof(u32))) {
 		return -EFAULT;
 	}
 
@@ -2648,13 +2691,13 @@ int mdss_mdp_igc_lut_config(struct mdp_igc_lut_data *config,
 		local_cfg.c2_data =
 			&mdss_pp_res->igc_lut_c2[disp_num][0];
 		pp_read_igc_lut(&local_cfg, igc_addr, dspp_num);
-		if (copy_to_user(config->c0_c1_data, local_cfg.c2_data,
+		if (copy_to_user(config->c0_c1_data, local_cfg.c0_c1_data,
 			config->len * sizeof(u32))) {
 			ret = -EFAULT;
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 			goto igc_config_exit;
 		}
-		if (copy_to_user(config->c2_data, local_cfg.c0_c1_data,
+		if (copy_to_user(config->c2_data, local_cfg.c2_data,
 			config->len * sizeof(u32))) {
 			ret = -EFAULT;
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
@@ -3208,7 +3251,6 @@ static int pp_histogram_enable(struct pp_hist_col_info *hist_info,
 	hist_info->col_state = HIST_RESET;
 	hist_info->col_en = true;
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
-	hist_info->is_kick_ready = true;
 	mdss_mdp_hist_intr_req(&mdata->hist_intr, 3 << shift_bit, true);
 	writel_relaxed(req->frame_cnt, ctl_base + 8);
 	/* Kick out reset start */
@@ -3329,7 +3371,6 @@ static int pp_histogram_disable(struct pp_hist_col_info *hist_info,
 	hist_info->col_en = false;
 	hist_info->col_state = HIST_UNKNOWN;
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
-	hist_info->is_kick_ready = false;
 	mdss_mdp_hist_intr_req(&mdata->hist_intr, done_bit, false);
 	writel_relaxed(BIT(1), ctl_base);/* cancel */
 	ret = 0;

@@ -247,10 +247,10 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 		}
 
 #if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)
-		/*             
-                                     
-                                    
-   */
+		/* LGE_CHANGE_S
+		 * power sequence for LGD_FHD panel
+		 * 2013-04-05, yeonjun.kim@lge.com
+		 */
 		if (gpio_is_valid(ctrl_pdata->disp_en_gpio)) {
 			gpio_set_value((ctrl_pdata->disp_en_gpio), 1);
 			msleep(1);
@@ -264,11 +264,11 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 	} else {
 
 #if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)
-		/*           
-                                                      
-                                              
-                                     
-   */
+		/* LGE_CHANGE
+		 * Change Power off sequence to meet system matching
+		 * (vdda off - reset - disp off - vddio off)
+		 * 2013-09-09, baryun.hwang@lge.com
+		 */
 		ret = msm_dss_enable_vreg(
 			ctrl_pdata->power_data.vreg_config+1,
 			1, 0);
@@ -885,7 +885,7 @@ int mdss_dsi_cont_splash_on(struct mdss_panel_data *pdata)
 				ctrl_pdata, ctrl_pdata->ndx);
 
 #if defined(CONFIG_MACH_LGE)
-	/*                                                   */
+	/* LGE_CHANGE, command panel does not be powered off */
 	if (pdata->panel_info.type == MIPI_VIDEO_PANEL)
 #endif
 		WARN((ctrl_pdata->ctrl_state & CTRL_STATE_PANEL_INIT),
@@ -936,33 +936,58 @@ static int mdss_dsi_dfps_config(struct mdss_panel_data *pdata, int new_fps)
 
 	if (new_fps !=
 		ctrl_pdata->panel_data.panel_info.mipi.frame_rate) {
-		rc = mdss_dsi_clk_div_config
-			(&ctrl_pdata->panel_data.panel_info, new_fps);
-		if (rc) {
-			pr_err("%s: unable to initialize the clk dividers\n",
-							__func__);
-			return rc;
-		}
-		ctrl_pdata->pclk_rate =
-			ctrl_pdata->panel_data.panel_info.mipi.dsi_pclk_rate;
-		ctrl_pdata->byte_clk_rate =
-			ctrl_pdata->panel_data.panel_info.clk_rate / 8;
-
 		if (pdata->panel_info.dfps_update
-				== DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
-			dsi_ctrl = MIPI_INP((ctrl_pdata->ctrl_base) +
-					    0x0004);
-			ctrl_pdata->panel_data.panel_info.mipi.frame_rate =
-									new_fps;
-			dsi_ctrl &= ~0x2;
-			MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004,
-							dsi_ctrl);
-			mdss_dsi_controller_cfg(true, pdata);
-			mdss_dsi_clk_ctrl(ctrl_pdata, 0);
-			mdss_dsi_clk_ctrl(ctrl_pdata, 1);
-			dsi_ctrl |= 0x2;
-			MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004,
-							dsi_ctrl);
+			== DFPS_IMMEDIATE_PORCH_UPDATE_MODE) {
+			u32 hsync_period, vsync_period;
+			u32 new_dsi_v_total, current_dsi_v_total;
+			vsync_period =
+				mdss_panel_get_vtotal(&pdata->panel_info);
+			hsync_period =
+				mdss_panel_get_htotal(&pdata->panel_info);
+			current_dsi_v_total =
+				MIPI_INP((ctrl_pdata->ctrl_base) + 0x2C);
+			new_dsi_v_total =
+				((vsync_period - 1) << 16) | (hsync_period - 1);
+			MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
+				(current_dsi_v_total | 0x8000000));
+			if (new_dsi_v_total & 0x8000000) {
+				MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
+					new_dsi_v_total);
+			} else {
+				MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
+					(new_dsi_v_total | 0x8000000));
+				MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x2C,
+					(new_dsi_v_total & 0x7ffffff));
+			}
+			pdata->panel_info.mipi.frame_rate = new_fps;
+		} else {
+			rc = mdss_dsi_clk_div_config
+				(&ctrl_pdata->panel_data.panel_info, new_fps);
+			if (rc) {
+				pr_err("%s: unable to initialize the clk dividers\n",
+								__func__);
+				return rc;
+			}
+			ctrl_pdata->pclk_rate =
+				pdata->panel_info.mipi.dsi_pclk_rate;
+			ctrl_pdata->byte_clk_rate =
+				pdata->panel_info.clk_rate / 8;
+
+			if (pdata->panel_info.dfps_update
+					== DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
+				dsi_ctrl = MIPI_INP((ctrl_pdata->ctrl_base) +
+						    0x0004);
+				pdata->panel_info.mipi.frame_rate = new_fps;
+				dsi_ctrl &= ~0x2;
+				MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004,
+								dsi_ctrl);
+				mdss_dsi_controller_cfg(true, pdata);
+				mdss_dsi_clk_ctrl(ctrl_pdata, 0);
+				mdss_dsi_clk_ctrl(ctrl_pdata, 1);
+				dsi_ctrl |= 0x2;
+				MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x0004,
+								dsi_ctrl);
+			}
 		}
 	} else {
 		pr_debug("%s: Panel is already at this FPS\n", __func__);
@@ -1499,6 +1524,12 @@ int dsi_panel_device_register(struct device_node *pan_node,
 				pinfo->dfps_update =
 						DFPS_IMMEDIATE_CLK_UPDATE_MODE;
 				pr_debug("%s: dfps mode: Immediate clk\n",
+								__func__);
+			} else if (!strcmp(data,
+					    "dfps_immediate_porch_mode")) {
+				pinfo->dfps_update =
+					DFPS_IMMEDIATE_PORCH_UPDATE_MODE;
+				pr_debug("%s: dfps mode: Immediate porch\n",
 								__func__);
 			} else {
 				pr_debug("%s: dfps to default mode\n",

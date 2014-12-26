@@ -1867,7 +1867,7 @@ config DONT_MAP_HOLE_AFTER_MEMBANK0
 	  into the virtual space. This results in more lowmem.
 	  If multiple holes are present, only the largest hole
 	  in the first 256MB of memory is not mapped.
-	
+
 config ENABLE_VMALLOC_SAVING
 	bool "Reclaim memory for each subsystem"
 	help

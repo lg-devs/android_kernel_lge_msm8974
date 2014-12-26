@@ -536,6 +536,7 @@
 	/*	status = "ok"; */ /* Disable sdcc. We use sdhci instead of sdcc, G2-FS@lge.com */
 		status = "disable";
 	};
+
 };
 
 &sdcc1 {

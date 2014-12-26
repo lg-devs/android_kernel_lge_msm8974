@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,6 @@
 #include <linux/iopoll.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
-#include <linux/bootmem.h>
 #include <linux/memblock.h>
 
 #include "mdss_fb.h"
@@ -28,9 +27,9 @@ extern int mdss_dsi_lane_config(struct mdss_panel_data *pdata, int enable);
 #endif
 
 #ifdef CONFIG_MACH_LGE
-/*                            */
+/* LGE_UPDATE_S for MINIOS2.0 */
 #include <mach/board_lge.h>
-/*                            */
+/* LGE_UPDATE_E for MINIOS2.0 */
 #endif
 
 /* wait for at least 2 vsyncs for lowest refresh rate (24hz) */
@@ -198,7 +197,7 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 		       (hsync_polarity << 0);  /* HSYNC Polarity */
 
 #ifdef CONFIG_MACH_LGE
-	/*                            */
+	/* LGE_UPDATE_S for MINIOS2.0 */
 	if (lge_get_boot_mode() == LGE_BOOT_MODE_MINIOS) {
 		if (MDSS_INTF_HDMI == ctx->intf_type) {
 			pr_info("[miniOS] Enable HDMI Grayscale Ramp Pattern");
@@ -206,7 +205,7 @@ static int mdss_mdp_video_timegen_setup(struct mdss_mdp_ctl *ctl,
 			mdp_video_write(ctx, MDSS_MDP_REG_INTF_TPG_MAIN_CONTROL, 0x40);
 		}
 	}
-	/*                            */
+	/* LGE_UPDATE_E for MINIOS2.0 */
 #endif
 
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_HSYNC_CTL, hsync_ctl);
@@ -344,6 +343,8 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl)
 				frame_rate = 24;
 			msleep((1000/frame_rate) + 1);
 		}
+
+		mdss_iommu_ctrl(0);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 		ctx->timegen_en = false;
 
@@ -472,6 +473,21 @@ static int mdss_mdp_video_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 	return rc;
 }
 
+static void recover_underrun_work(struct work_struct *work)
+{
+	struct mdss_mdp_ctl *ctl =
+		container_of(work, typeof(*ctl), recover_work);
+
+	if (!ctl || !ctl->add_vsync_handler) {
+		pr_err("ctl or vsync handler is NULL\n");
+		return;
+	}
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
+	ctl->add_vsync_handler(ctl, &ctl->recover_underrun_handler);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
+}
+
 static void mdss_mdp_video_underrun_intr_done(void *arg)
 {
 	struct mdss_mdp_ctl *ctl = arg;
@@ -481,9 +497,68 @@ static void mdss_mdp_video_underrun_intr_done(void *arg)
 	ctl->underrun_cnt++;
 	pr_debug("display underrun detected for ctl=%d count=%d\n", ctl->num,
 			ctl->underrun_cnt);
+
+	if (ctl->opmode & MDSS_MDP_CTL_OP_PACK_3D_ENABLE)
+		schedule_work(&ctl->recover_work);
 }
 
-static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
+static int mdss_mdp_video_vfp_fps_update(struct mdss_mdp_ctl *ctl, int new_fps)
+{
+	int curr_fps;
+	u32 add_v_lines = 0;
+	u32 current_vsync_period_f0, new_vsync_period_f0;
+	struct mdss_panel_data *pdata;
+	struct mdss_mdp_video_ctx *ctx;
+	u32 vsync_period, hsync_period;
+
+	ctx = (struct mdss_mdp_video_ctx *) ctl->priv_data;
+	if (!ctx) {
+		pr_err("invalid ctx\n");
+		return -ENODEV;
+	}
+
+	pdata = ctl->panel_data;
+	if (pdata == NULL) {
+		pr_err("%s: Invalid panel data\n", __func__);
+		return -EINVAL;
+	}
+
+	vsync_period = mdss_panel_get_vtotal(&pdata->panel_info);
+	hsync_period = mdss_panel_get_htotal(&pdata->panel_info);
+	curr_fps = mdss_panel_get_framerate(&pdata->panel_info);
+
+	if (curr_fps > new_fps) {
+		add_v_lines = mult_frac(vsync_period,
+				(curr_fps - new_fps), new_fps);
+		pdata->panel_info.lcdc.v_front_porch += add_v_lines;
+	} else {
+		add_v_lines = mult_frac(vsync_period,
+				(new_fps - curr_fps), new_fps);
+		pdata->panel_info.lcdc.v_front_porch -= add_v_lines;
+	}
+
+	vsync_period = mdss_panel_get_vtotal(&pdata->panel_info);
+	current_vsync_period_f0 = mdp_video_read(ctx,
+		MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0);
+	new_vsync_period_f0 = (vsync_period * hsync_period);
+
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
+			current_vsync_period_f0 | 0x800000);
+	if (new_vsync_period_f0 & 0x800000) {
+		mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
+			new_vsync_period_f0);
+	} else {
+		mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
+			new_vsync_period_f0 | 0x800000);
+		mdp_video_write(ctx, MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0,
+			new_vsync_period_f0 & 0x7fffff);
+	}
+
+	return 0;
+}
+
+static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
+					struct mdss_mdp_ctl *sctl, int new_fps)
 {
 	struct mdss_mdp_video_ctx *ctx;
 	struct mdss_panel_data *pdata;
@@ -546,6 +621,40 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
 			ctl->force_screen_state = MDSS_SCREEN_DEFAULT;
 			mdss_mdp_display_commit(ctl, NULL);
 			mdss_mdp_display_wait4comp(ctl);
+		} else if (pdata->panel_info.dfps_update
+				== DFPS_IMMEDIATE_PORCH_UPDATE_MODE){
+			if (!ctx->timegen_en) {
+				pr_err("TG is OFF. DFPS mode invalid\n");
+				return -EINVAL;
+			}
+
+			video_vsync_irq_enable(ctl, true);
+			INIT_COMPLETION(ctx->vsync_comp);
+			rc = wait_for_completion_timeout(&ctx->vsync_comp,
+				usecs_to_jiffies(VSYNC_TIMEOUT_US));
+			WARN(rc <= 0, "timeout (%d) vsync interrupt on ctl=%d\n",
+				rc, ctl->num);
+			rc = 0;
+			video_vsync_irq_disable(ctl);
+
+			rc = mdss_mdp_video_vfp_fps_update(ctl, new_fps);
+			if (rc < 0) {
+				pr_err("%s: Error during DFPS\n", __func__);
+				return rc;
+			}
+			if (sctl) {
+				rc = mdss_mdp_video_vfp_fps_update(sctl,
+								new_fps);
+				if (rc < 0) {
+					pr_err("%s: DFPS error\n", __func__);
+					return rc;
+				}
+			}
+			rc = mdss_mdp_ctl_intf_event(ctl,
+						MDSS_EVENT_PANEL_UPDATE_FPS,
+						(void *)new_fps);
+			WARN(rc, "intf %d panel fps update error (%d)\n",
+							ctl->intf_num, rc);
 		} else {
 			pr_err("intf %d panel, unknown FPS mode\n",
 							ctl->intf_num);
@@ -561,9 +670,6 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl, int new_fps)
 
 	return rc;
 }
-
-
-
 
 static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 {
@@ -608,6 +714,13 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 		}
 
 		pr_debug("enabling timing gen for intf=%d\n", ctl->intf_num);
+
+		rc = mdss_iommu_ctrl(1);
+		if (IS_ERR_VALUE(rc)) {
+			pr_err("IOMMU attach failed\n");
+			return rc;
+		}
+
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 
 		mdss_mdp_irq_enable(MDSS_MDP_IRQ_INTF_UNDER_RUN, ctl->intf_num);
@@ -714,7 +827,6 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 {
 	struct mdss_panel_data *pdata = ctl->panel_data;
 	int i, ret = 0;
-	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(ctl->mfd);
 	struct mdss_mdp_video_ctx *ctx;
 	struct mdss_data_type *mdata = ctl->mdata;
 
@@ -750,12 +862,6 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 error:
 	pdata->panel_info.cont_splash_enabled = 0;
 
-	/* Give back the reserved memory to the system */
-	memblock_free(mdp5_data->splash_mem_addr, mdp5_data->splash_mem_size);
-	free_bootmem_late(mdp5_data->splash_mem_addr,
-				 mdp5_data->splash_mem_size);
-
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	return ret;
 }
 
@@ -799,6 +905,7 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	init_completion(&ctx->vsync_comp);
 	spin_lock_init(&ctx->vsync_lock);
 	atomic_set(&ctx->vsync_ref, 0);
+	INIT_WORK(&ctl->recover_work, recover_underrun_work);
 
 	mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_INTF_VSYNC, ctl->intf_num,
 				   mdss_mdp_video_vsync_intr_done, ctl);
@@ -806,10 +913,10 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 				   mdss_mdp_video_underrun_intr_done, ctl);
 
 #ifdef CONFIG_LGE_LCD_TUNING
-	/*           
-                                  
-                                    
-  */
+	/* LGE_CHANGE
+	 * Implement for LCD porch tuning
+	 * 2013-01-25, baryun.hwang@lge.com
+	 */
 	pinfo->lcdc.h_back_porch = tun_porch_value[0];
 	pinfo->lcdc.h_front_porch = tun_porch_value[2];
 	pinfo->lcdc.v_back_porch = tun_porch_value[3];

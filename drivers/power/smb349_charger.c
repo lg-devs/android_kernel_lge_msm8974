@@ -2043,7 +2043,7 @@ static void smb349_bb_worker(struct work_struct *work)
 	int ret;
 
 	chg_current = smb349_get_prop_batt_current_now(smb349_chg);
-	smb349_console_silent = 0;
+	smb349_console_silent = 1;
 
 	if (chg_current < DISCHARGE_CURRENT * 1000) {
 		pr_debug("discharging case\n");

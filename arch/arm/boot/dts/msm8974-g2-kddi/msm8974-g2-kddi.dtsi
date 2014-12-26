@@ -186,6 +186,7 @@
 				1 &intc 0 223 0
 				2 &msmgpio 44 0x3>;
 		interrupt-names = "core_irq", "bam_irq", "wlan_oob_irq";
+		qcom,wifi-control-func;
 
 		gpios = <&msmgpio 40 0>, /* CLK */
 			<&msmgpio 39 0>, /* CMD */
@@ -216,6 +217,7 @@
 		qcom,bus-bw-vectors-bps = <0 400000 20000000 25000000 50000000 100000000 200000000 4294967295>;
 		status = "ok";
 	};
+
 };
 
 &sdcc2 {

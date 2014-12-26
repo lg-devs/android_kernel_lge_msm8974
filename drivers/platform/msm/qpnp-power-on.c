@@ -23,10 +23,6 @@
 #include <linux/input.h>
 #include <linux/log2.h>
 #include <linux/qpnp/power-on.h>
-#ifdef CONFIG_MACH_LGE
-#include <linux/wakelock.h>
-#endif
-
 #include <linux/zwait.h>
 
 /* Common PNP defines */
@@ -141,10 +137,6 @@ static const char * const qpnp_pon_reason[] = {
 	[6] = "Triggered from CBL (external power supply)",
 	[7] = "Triggered from KPD (power key press)",
 };
-
-#ifdef CONFIG_MACH_LGE
-struct wake_lock kpdpwr_irq_wake_lock;
-#endif
 
 static int
 qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
@@ -383,9 +375,6 @@ static irqreturn_t qpnp_kpdpwr_irq(int irq, void *_pon)
 	if (rc)
 		dev_err(&pon->spmi->dev, "Unable to send input event\n");
 
-#ifdef CONFIG_MACH_LGE
-	wake_lock_timeout(&kpdpwr_irq_wake_lock, HZ/2);
-#endif
 	return IRQ_HANDLED;
 }
 
@@ -1162,10 +1151,6 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
-#ifdef CONFIG_MACH_LGE
-	wake_lock_init(&kpdpwr_irq_wake_lock, WAKE_LOCK_SUSPEND, "kpdpwr_irq");
-#endif
-
 #ifdef CONFIG_ZERO_WAIT
 	zw_pwrkey.check_func = pwrkey_is_pressed;
 	zw_pwrkey.func_param = (void *)pon;
@@ -1191,9 +1176,6 @@ static int qpnp_pon_remove(struct spmi_device *spmi)
 #endif
 
 	cancel_delayed_work_sync(&pon->bark_work);
-#ifdef CONFIG_MACH_LGE
-	wake_lock_destroy(&kpdpwr_irq_wake_lock);
-#endif
 
 	if (pon->pon_input)
 		input_unregister_device(pon->pon_input);
@@ -1219,7 +1201,7 @@ static int __init qpnp_pon_init(void)
 {
 	return spmi_driver_register(&qpnp_pon_driver);
 }
-module_init(qpnp_pon_init);
+subsys_initcall(qpnp_pon_init);
 
 static void __exit qpnp_pon_exit(void)
 {
@@ -1229,3 +1211,4 @@ module_exit(qpnp_pon_exit);
 
 MODULE_DESCRIPTION("QPNP PMIC POWER-ON driver");
 MODULE_LICENSE("GPL v2");
+

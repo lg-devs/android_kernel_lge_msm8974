@@ -56,10 +56,12 @@
 #endif
 
 #include "mdss_fb.h"
+#include "mdss_mdp_splash_logo.h"
+
 #ifdef CONFIG_LGE_ESD_CHECK
-/*             
-                           
-                                
+/* LGE_CHANGE_S
+* change code for ESD check
+* 2013-04-10, seojin.lee@lge.com
 */
 #include "mdss_dsi.h"
 #endif
@@ -99,16 +101,13 @@ static u32 mdss_fb_pseudo_palette[16] = {
 #define INIT_HD_IMAGE_FILE "/initlogo_hd.rle"
 #define INIT_FHD_IMAGE_FILE "/initlogo_fhd.rle"
 #define INIT_UVGA_IMAGE_FILE "/initlogo_uvga.rle"
-#if defined(CONFIG_MACH_MSM8974_G2_DCM)
-#define INIT_DCM_IMAGE_FILE "/initlogo_dcm_xi.rle"
-#endif
 
 extern int load_888rle_image(char *filename);
 #endif
 #ifdef CONFIG_LGE_ESD_CHECK
-/*             
-                           
-                                
+/* LGE_CHANGE_S
+* change code for ESD check
+* 2013-04-08, seojin.lee@lge.com
 */
 static struct dsi_buf esd_dsi_panel_tx_buf;
 static struct dsi_buf esd_dsi_panel_rx_buf;
@@ -128,12 +127,12 @@ static struct dsi_cmd_desc cmds_macp_off = {DTYPE_GEN_WRITE2, 1, 0, 0, 0,
 	sizeof(macp_off), macp_off};
 static struct dsi_cmd_desc cmds_macp_on = {DTYPE_GEN_WRITE2, 1, 0, 0, 0,
 	sizeof(macp_on), macp_on};
-#endif /*                      */
+#endif /* CONFIG_LGE_ESD_CHECK */
 
 #if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG)
 extern struct mdp_csc_cfg dmb_csc_convert;
 extern int pp_set_dmb_status(int flag);
-#endif /*               */
+#endif /* LGE_BROADCAST */
 
 static struct msm_mdp_interface *mdp_instance;
 
@@ -412,11 +411,7 @@ static int mdss_fb_draw_bootlogo(struct msm_fb_data_type *mfd)
 
 	mdss_fb_open(mfd->fbi, 0);
 	if (fbi->var.xres >= 1080) {
-#if defined(CONFIG_MACH_MSM8974_G2_DCM)
-		if (load_888rle_image(INIT_DCM_IMAGE_FILE) < 0)
-#else
 		if (load_888rle_image(INIT_FHD_IMAGE_FILE) < 0)
-#endif
 			printk(KERN_WARNING "fail to load 888 rle image\n");
 	} else if (fbi->var.xres == 960 && fbi->var.yres == 1280) {
 
@@ -428,10 +423,10 @@ static int mdss_fb_draw_bootlogo(struct msm_fb_data_type *mfd)
 	}
 	mdss_fb_pan_display(&mfd->fbi->var, mfd->fbi);
 
-	/*           
-                                             
-                                    
-  */
+	/* LGE_CHANGE
+	 * Turn backlight on right after logo image.
+	 * 2013-01-30, baryun.hwang@lge.com
+	 */
 	mfd->bl_updated = 1;
 	mutex_lock(&mfd->lock);
 	mdss_fb_set_backlight(mfd, -BOOT_BRIGHTNESS);
@@ -445,9 +440,9 @@ static int mdss_fb_draw_bootlogo(struct msm_fb_data_type *mfd)
 }
 #endif
 #ifdef CONFIG_LGE_ESD_CHECK
-/*             
-                           
-                                
+/* LGE_CHANGE_S
+* change code for ESD check
+* 2013-04-08, seojin.lee@lge.com
 */
 static ssize_t write_reg_adr(struct device *dev, struct device_attribute *attr,
 						const char *buf, size_t count)
@@ -568,7 +563,7 @@ static ssize_t read_reg(struct device *dev, struct device_attribute *attr, char 
 DEVICE_ATTR(show_reg_value, 0644, read_reg, write_reg_adr);
 DEVICE_ATTR(write_cmd_type, 0644, NULL, write_cmd);
 DEVICE_ATTR(write_cmd_size, 0644, NULL, write_size);
-#endif /*                      */
+#endif /* CONFIG_LGE_ESD_CHECK */
 
 #if defined(CONFIG_MACH_LGE)
 #if defined(CONFIG_G2_LGD_PANEL) || defined(CONFIG_B1_LGD_PANEL) || defined(CONFIG_VU3_LGD_PANEL)
@@ -666,17 +661,27 @@ static int mdss_fb_probe(struct platform_device *pdev)
 		 mfd->mdp_sync_pt_data.timeline =
 				sw_sync_timeline_create(timeline_name);
 		if (mfd->mdp_sync_pt_data.timeline == NULL) {
-			pr_err("%s: cannot create time line", __func__);
+			pr_err("cannot create release fence time line\n");
 			return -ENOMEM;
 		}
 		mfd->mdp_sync_pt_data.notifier.notifier_call =
 			__mdss_fb_sync_buf_done_callback;
 	}
-	if ((mfd->panel.type == WRITEBACK_PANEL) ||
-			(mfd->panel.type == MIPI_CMD_PANEL))
+
+	switch (mfd->panel.type) {
+	case WRITEBACK_PANEL:
 		mfd->mdp_sync_pt_data.threshold = 1;
-	else
+		mfd->mdp_sync_pt_data.retire_threshold = 0;
+		break;
+	case MIPI_CMD_PANEL:
+		mfd->mdp_sync_pt_data.threshold = 1;
+		mfd->mdp_sync_pt_data.retire_threshold = 1;
+		break;
+	default:
 		mfd->mdp_sync_pt_data.threshold = 2;
+		mfd->mdp_sync_pt_data.retire_threshold = 0;
+		break;
+	}
 
 #if defined(CONFIG_MACH_LGE)
 	if (mfd_base == NULL)
@@ -684,10 +689,10 @@ static int mdss_fb_probe(struct platform_device *pdev)
 #endif
 
 #ifdef CONFIG_LGE_ESD_CHECK
-	/*             
-                             
-                                  
-  */
+	/* LGE_CHANGE_S
+	 * change code for ESD check
+	 * 2013-04-08, seojin.lee@lge.com
+	 */
 	if (local_pdata == NULL)
 		local_pdata = pdata;
 	if (local_mfd == NULL)
@@ -707,15 +712,10 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	if (rc) {
 		printk(KERN_ERR "### %s : fail to create sysfs\n", __func__);
 	}
-#endif /*                      */
+#endif /* CONFIG_LGE_ESD_CHECK */
 
 #if defined(CONFIG_MACH_LGE) && defined(CONFIG_FB_MSM_LOGO)
-#if defined(CONFIG_MACH_MSM8974_G2_DCM)
-	if ((lge_get_boot_mode() != LGE_BOOT_MODE_MINIOS))
-#else
 	if ((lge_get_boot_mode() != LGE_BOOT_MODE_MINIOS) && (lge_get_boot_mode() != LGE_BOOT_MODE_CHARGERLOGO) && !lge_get_cont_splash_enabled())
-#endif
-	mdss_fb_draw_bootlogo(mfd);
 #endif
 
 #if defined(CONFIG_MACH_LGE)
@@ -731,6 +731,9 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	if ((lge_get_boot_mode() == LGE_BOOT_MODE_FACTORY2) || (lge_get_boot_mode() == LGE_BOOT_MODE_PIFBOOT) || (lge_get_boot_mode() == LGE_BOOT_MODE_PIFBOOT2))
 		is_fboot = 1;
 #endif
+
+	if (mfd->mdp.splash_init_fnc)
+		mfd->mdp.splash_init_fnc(mfd);
 
 	return rc;
 }
@@ -1127,6 +1130,8 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 		}
 		break;
 	}
+	/* Notify listeners */
+	sysfs_notify(&mfd->fbi->dev->kobj, NULL, "show_blank_event");
 
 	return ret;
 }
@@ -1649,7 +1654,7 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 		} while (release_all && pinfo->ref_cnt);
 
 		if (release_all && mfd->disp_thread) {
-			kthread_stop(mfd->disp_thread);
+ 			kthread_stop(mfd->disp_thread);
 			mfd->disp_thread = NULL;
 		}
 
@@ -2271,11 +2276,11 @@ static int mdss_fb_set_par(struct fb_info *info)
 
 int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state)
 {
-	int ret = -EINVAL;
+	int ret = 0;
 
 	if (req_state == mfd->dcm_state) {
-		pr_warn("Already in correct DCM state");
-		ret = 0;
+		pr_warn("Already in correct DCM/DTM state");
+		return ret;
 	}
 
 	switch (req_state) {
@@ -2291,11 +2296,12 @@ int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state)
 		break;
 	case DCM_ENTER:
 		if (mfd->dcm_state == DCM_UNBLANK) {
-			/* Keep unblank path available for only
-			DCM operation */
+			/*
+			 * Keep unblank path available for only
+			 * DCM operation
+			 */
 			mfd->panel_power_on = false;
 			mfd->dcm_state = DCM_ENTER;
-			ret = 0;
 		}
 		break;
 	case DCM_EXIT:
@@ -2317,7 +2323,16 @@ int mdss_fb_dcm(struct msm_fb_data_type *mfd, int req_state)
 			}
 		}
 		break;
+	case DTM_ENTER:
+		if (mfd->dcm_state == DCM_UNINIT)
+			mfd->dcm_state = DTM_ENTER;
+		break;
+	case DTM_EXIT:
+		if (mfd->dcm_state == DTM_ENTER)
+			mfd->dcm_state = DCM_UNINIT;
+		break;
 	}
+
 	return ret;
 }
 
@@ -2355,42 +2370,37 @@ static int mdss_fb_set_lut(struct fb_info *info, void __user *p)
 }
 
 /**
- * mdss_fb_sync_get_rel_fence() - get release fence from sync pt timeline
- * @sync_pt_data:	Sync pt structure holding timeline and fence info.
+ * mdss_fb_sync_get_fence() - get fence from timeline
+ * @timeline:	Timeline to create the fence on
+ * @fence_name:	Name of the fence that will be created for debugging
+ * @val:	Timeline value at which the fence will be signaled
  *
- * Function returns a release fence on the timeline associated with the
- * sync pt struct given and it's associated information. The release fence
- * created can be used to signal when buffers provided will be released.
+ * Function returns a fence on the timeline given with the name provided.
+ * The fence created will be signaled when the timeline is advanced.
  */
-static struct sync_fence *__mdss_fb_sync_get_rel_fence(
-		struct msm_sync_pt_data *sync_pt_data)
+struct sync_fence *mdss_fb_sync_get_fence(struct sw_sync_timeline *timeline,
+		const char *fence_name, int val)
 {
-	struct sync_pt *rel_sync_pt;
-	struct sync_fence *rel_fence;
-	int val;
+	struct sync_pt *sync_pt;
+	struct sync_fence *fence;
 
-	val = sync_pt_data->timeline_value + sync_pt_data->threshold +
-		atomic_read(&sync_pt_data->commit_cnt);
+	pr_debug("%s: buf sync fence timeline=%d\n", fence_name, val);
 
-	pr_debug("%s: buf sync rel fence timeline=%d\n",
-		sync_pt_data->fence_name, val);
-
-	rel_sync_pt = sw_sync_pt_create(sync_pt_data->timeline, val);
-	if (rel_sync_pt == NULL) {
-		pr_err("%s: cannot create sync point\n",
-				sync_pt_data->fence_name);
+	sync_pt = sw_sync_pt_create(timeline, val);
+	if (sync_pt == NULL) {
+		pr_err("%s: cannot create sync point\n", fence_name);
 		return NULL;
 	}
 
 	/* create fence */
-	rel_fence = sync_fence_create(sync_pt_data->fence_name, rel_sync_pt);
-	if (rel_fence == NULL) {
-		sync_pt_free(rel_sync_pt);
-		pr_err("%s: cannot create fence\n", sync_pt_data->fence_name);
+	fence = sync_fence_create(fence_name, sync_pt);
+	if (fence == NULL) {
+		sync_pt_free(sync_pt);
+		pr_err("%s: cannot create fence\n", fence_name);
 		return NULL;
 	}
 
-	return rel_fence;
+	return fence;
 }
 
 static int mdss_fb_handle_buf_sync_ioctl(struct msm_sync_pt_data *sync_pt_data,
@@ -2398,8 +2408,10 @@ static int mdss_fb_handle_buf_sync_ioctl(struct msm_sync_pt_data *sync_pt_data,
 {
 	int i, ret = 0;
 	int acq_fen_fd[MDP_MAX_FENCE_FD];
-	struct sync_fence *fence, *rel_fence;
+	struct sync_fence *fence, *rel_fence, *retire_fence;
 	int rel_fen_fd;
+	int retire_fen_fd;
+	int val;
 
 	if ((buf_sync->acq_fen_fd_cnt > MDP_MAX_FENCE_FD) ||
 				(sync_pt_data->timeline == NULL))
@@ -2436,7 +2448,12 @@ static int mdss_fb_handle_buf_sync_ioctl(struct msm_sync_pt_data *sync_pt_data,
 	if (ret)
 		goto buf_sync_err_1;
 
-	rel_fence = __mdss_fb_sync_get_rel_fence(sync_pt_data);
+	val = sync_pt_data->timeline_value + sync_pt_data->threshold +
+			atomic_read(&sync_pt_data->commit_cnt);
+
+	/* Set release fence */
+	rel_fence = mdss_fb_sync_get_fence(sync_pt_data->timeline,
+			sync_pt_data->fence_name, val);
 	if (IS_ERR_OR_NULL(rel_fence)) {
 		pr_err("%s: unable to retrieve release fence\n",
 				sync_pt_data->fence_name);
@@ -2460,6 +2477,50 @@ static int mdss_fb_handle_buf_sync_ioctl(struct msm_sync_pt_data *sync_pt_data,
 		pr_err("%s: copy_to_user failed\n", sync_pt_data->fence_name);
 		goto buf_sync_err_3;
 	}
+
+	if (!(buf_sync->flags & MDP_BUF_SYNC_FLAG_RETIRE_FENCE))
+		goto skip_retire_fence;
+
+	if (sync_pt_data->get_retire_fence)
+		retire_fence = sync_pt_data->get_retire_fence(sync_pt_data);
+	else
+		retire_fence = NULL;
+
+	if (IS_ERR_OR_NULL(retire_fence)) {
+		val += sync_pt_data->retire_threshold;
+		retire_fence = mdss_fb_sync_get_fence(
+			sync_pt_data->timeline, "mdp-retire", val);
+	}
+
+	if (IS_ERR_OR_NULL(retire_fence)) {
+		pr_err("%s: unable to retrieve retire fence\n",
+				sync_pt_data->fence_name);
+		ret = retire_fence ? PTR_ERR(rel_fence) : -ENOMEM;
+		goto buf_sync_err_3;
+	}
+	retire_fen_fd = get_unused_fd_flags(0);
+
+	if (retire_fen_fd < 0) {
+		pr_err("%s: get_unused_fd_flags failed for retire fence\n",
+				sync_pt_data->fence_name);
+		ret = -EIO;
+		sync_fence_put(retire_fence);
+		goto buf_sync_err_3;
+	}
+
+	sync_fence_install(retire_fence, retire_fen_fd);
+
+	ret = copy_to_user(buf_sync->retire_fen_fd, &retire_fen_fd,
+			sizeof(int));
+	if (ret) {
+		pr_err("%s: copy_to_user failed for retire fence\n",
+				sync_pt_data->fence_name);
+		put_unused_fd(retire_fen_fd);
+		sync_fence_put(retire_fence);
+		goto buf_sync_err_3;
+	}
+
+skip_retire_fence:
 	mutex_unlock(&sync_pt_data->sync_mutex);
 
 	if (buf_sync->flags & MDP_BUF_SYNC_FLAG_WAIT)
@@ -2509,7 +2570,7 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 #if defined(CONFIG_LGE_BROADCAST_TDMB) || defined(CONFIG_LGE_BROADCAST_ONESEG)
 	int dmb_flag = 0;
 	struct mdp_csc_cfg dmb_csc_cfg;
-#endif /*               */
+#endif /* LGE_BROADCAST */
 
 	if (!info || !info->par)
 		return -EINVAL;
@@ -2589,7 +2650,7 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			return ret;
 		memcpy(dmb_csc_convert.csc_mv, dmb_csc_cfg.csc_mv, sizeof(dmb_csc_cfg.csc_mv));
 		break;
-#endif /*               */
+#endif /* LGE_BROADCAST */
 
 	default:
 		if (mfd->mdp.ioctl_handler)
@@ -2741,9 +2802,9 @@ int __init mdss_fb_init(void)
 	if (platform_driver_register(&mdss_fb_driver))
 		return rc;
 #ifdef CONFIG_LGE_ESD_CHECK
-/*             
-                           
-                                
+/* LGE_CHANGE_S
+* change code for ESD check
+* 2013-04-08, seojin.lee@lge.com
 */
 	mdss_dsi_buf_alloc(&esd_dsi_panel_tx_buf, ALIGN(DSI_BUF_SIZE, SZ_4K));
 	mdss_dsi_buf_alloc(&esd_dsi_panel_rx_buf, ALIGN(DSI_BUF_SIZE, SZ_4K));

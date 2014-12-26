@@ -352,6 +352,7 @@
 		revision = "rev_c...";
 		status = "ok";
 	};	
+
 };
 
 &sdcc3 {

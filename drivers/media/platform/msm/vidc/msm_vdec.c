@@ -27,10 +27,10 @@
 #define MAX_NUM_OUTPUT_BUFFERS 6
 #endif
 
-//                                                                                                                    
+// LGE_CHANGE_S, [G2_Player][kyungmin.jun@lge.com], 20131202  DEFAULT_CONCEAL_COLOR value change from green to black {
 //#define DEFAULT_CONCEAL_COLOR 0x0
-#define DEFAULT_CONCEAL_COLOR 0x108080
-//                                                                                                                   
+#define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8080
+// LGE_CHANGE_S, [G2_Player][kyungmin.jun@lge.com], 20131202 DEFAULT_CONCEAL_COLOR value change from green to black }
 
 #define TZ_INFO_GET_FEATURE_VERSION_ID 0x3
 #define TZ_DYNAMIC_BUFFER_FEATURE_ID 12
@@ -232,7 +232,7 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.name = "Extradata Type",
 		.type = V4L2_CTRL_TYPE_MENU,
 		.minimum = V4L2_MPEG_VIDC_EXTRADATA_NONE,
-		.maximum = V4L2_MPEG_VIDC_EXTRADATA_MPEG2_SEQDISP,
+		.maximum = V4L2_MPEG_VIDC_EXTRADATA_FRAME_BITS_INFO,
 		.default_value = V4L2_MPEG_VIDC_EXTRADATA_NONE,
 		.menu_skip_mask = ~(
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_NONE) |
@@ -253,7 +253,9 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_INDEX_EXTRADATA_INPUT_CROP) |
 			(1 << V4L2_MPEG_VIDC_INDEX_EXTRADATA_DIGITAL_ZOOM) |
 			(1 << V4L2_MPEG_VIDC_INDEX_EXTRADATA_ASPECT_RATIO) |
-			(1 << V4L2_MPEG_VIDC_EXTRADATA_MPEG2_SEQDISP)
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_MPEG2_SEQDISP) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_FRAME_QP) |
+			(1 << V4L2_MPEG_VIDC_EXTRADATA_FRAME_BITS_INFO)
 			),
 		.qmenu = mpeg_video_vidc_extradata,
 		.step = 0,
@@ -329,6 +331,16 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.menu_skip_mask = 0,
 		.step = 1,
 		.qmenu = NULL,
+		.cluster = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR,
+		.name = "Picture concealed color",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.minimum = 0x0,
+		.maximum = 0xffffff,
+		.default_value = DEFAULT_VIDEO_CONCEAL_COLOR_BLACK,
+		.step = 1,
 		.cluster = 0,
 	},
 };
@@ -701,11 +713,20 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	int rc = 0;
 	int i;
 	struct hal_buffer_requirements *buff_req_buffer;
+
 	if (!inst || !f || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR,
 			"Invalid input, inst = %p, format = %p\n", inst, f);
 		return -EINVAL;
 	}
+
+	rc = msm_comm_try_get_bufreqs(inst);
+	if (rc) {
+		dprintk(VIDC_ERR, "Getting buffer requirements failed: %d\n",
+				rc);
+		return rc;
+	}
+
 	hdev = inst->core->device;
 	if (f->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 		fmt = inst->fmts[CAPTURE_PORT];
@@ -1118,7 +1139,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 				"Failed to set new buffer count(%d) on FW, err: %d\n",
 				new_buf_count.buffer_count_actual, rc);
 		}
-		//                                                                                                           
+		// LGE_CHANGE_S, [G2_Player][haewook.kim@lge.com], 20130626, msm vdec Update firmware with input buffer count
 		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
 		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
 		new_buf_count.buffer_count_actual = *num_buffers;
@@ -1129,7 +1150,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 					"Failed to set new buffer count(%d) on FW, err: %d\n",
 			new_buf_count.buffer_count_actual, rc);
 		}
-		//                                                                                                           
+		// LGE_CHANGE_E, [G2_Player][haewook.kim@lge.com], 20130626, msm vdec Update firmware with input buffer count
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		dprintk(VIDC_DBG, "Getting bufreqs on capture plane\n");
@@ -1339,7 +1360,6 @@ static int msm_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct msm_vidc_inst *inst;
 	int rc = 0;
-	int pdata = DEFAULT_CONCEAL_COLOR;
 	struct hfi_device *hdev;
 	if (!q || !q->drv_priv) {
 		dprintk(VIDC_ERR, "Invalid input, q = %p\n", q);
@@ -1357,10 +1377,6 @@ static int msm_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		if (inst->bufq[CAPTURE_PORT].vb2_bufq.streaming)
 			rc = start_streaming(inst);
-		rc = call_hfi_op(hdev, session_set_property,
-			(void *) inst->session,
-			HAL_PARAM_VDEC_CONCEAL_COLOR,
-			(void *) &pdata);
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		if (inst->bufq[OUTPUT_PORT].vb2_bufq.streaming)
@@ -1751,6 +1767,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			rc = -ENOTSUPP;
 			break;
 		}
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_CONCEAL_COLOR:
+		property_id = HAL_PARAM_VDEC_CONCEAL_COLOR;
+		property_val = ctrl->val;
+		pdata = &property_val;
 		break;
 	default:
 		break;

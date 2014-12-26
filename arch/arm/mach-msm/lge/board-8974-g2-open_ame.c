@@ -40,13 +40,14 @@
 #include <mach/rpm-smd.h>
 #include <mach/rpm-regulator-smd.h>
 #include <mach/socinfo.h>
+#include <mach/msm_smem.h>
 #include <mach/msm_bus_board.h>
 #include "../board-dt.h"
 #include "../clock.h"
 #include "../devices.h"
 #include "../spm.h"
 #include "../modem_notifier.h"
-#include "../lpm_resources.h"
+#include "../pm.h"
 #include "../platsmp.h"
 #include <mach/board_lge.h>
 
@@ -149,9 +150,9 @@ int kcal_set_values(int kcal_r, int kcal_g, int kcal_b)
 #if defined(CONFIG_MACH_MSM8974_A1)
 		int is_update = 0;
 
-		int kcal_r_limit = 250;
-		int kcal_g_limit = 250;
-		int kcal_b_limit = 253;
+		int kcal_r_limit = 0;
+		int kcal_g_limit = 0;
+		int kcal_b_limit = 0;
 
 		g_kcal_r = kcal_r < kcal_r_limit ? kcal_r_limit : kcal_r;
 		g_kcal_g = kcal_g < kcal_g_limit ? kcal_g_limit : kcal_g;
@@ -218,7 +219,7 @@ void __init msm8974_add_drivers(void)
 	msm_init_modem_notifier_list();
 	msm_smd_init();
 	msm_rpm_driver_init();
-	msm_lpmrs_module_init();
+	msm_pm_sleep_status_init();
 	rpm_regulator_smd_driver_init();
 	msm_spm_device_init();
 	krait_power_init();
