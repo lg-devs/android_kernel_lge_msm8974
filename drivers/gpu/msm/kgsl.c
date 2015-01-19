@@ -874,18 +874,11 @@ static void kgsl_destroy_process_private(struct kref *kref)
 	 * through kref_put() which is only called after acquiring
 	 * the lock.
 	 */
+	mutex_unlock(&kgsl_driver.process_mutex);
 	if (!private) {
 		KGSL_CORE_ERR("Cannot destroy null process private\n");
-		mutex_unlock(&kgsl_driver.process_mutex);
 		return;
 	}
-	list_del(&private->list);
-	mutex_unlock(&kgsl_driver.process_mutex);
-
-	if (private->kobj.state_in_sysfs)
-		kgsl_process_uninit_sysfs(private);
-	if (private->debug_root)
-		debugfs_remove_recursive(private->debug_root);
 
 	idr_destroy(&private->mem_idr);
 	kgsl_mmu_putpagetable(private->pagetable);
@@ -967,6 +960,24 @@ done:
 }
 
 /**
+ * kgsl_detach_process_private() - Remove a process private from the process
+ * private list and free things in the process private that relate to
+ * the process id in order to allow next open from same process create
+ * a new process private
+ * @private: Pointer to process private to detach
+ */
+static void kgsl_detach_process_private(struct kgsl_process_private *private)
+{
+	mutex_lock(&kgsl_driver.process_mutex);
+	list_del(&private->list);
+	mutex_unlock(&kgsl_driver.process_mutex);
+
+	if (private->kobj.state_in_sysfs)
+		kgsl_process_uninit_sysfs(private);
+	debugfs_remove_recursive(private->debug_root);
+}
+
+/**
  * kgsl_get_process_private() - Used to find the process private structure
  * @cur_dev_priv: Current device pointer
  * Finds or creates a new porcess private structire and initializes its members
@@ -1014,6 +1025,7 @@ done:
 
 error:
 	mutex_unlock(&private->process_private_mutex);
+	kgsl_detach_process_private(private);
 	kgsl_process_private_put(private);
 	return NULL;
 }
@@ -1108,6 +1120,7 @@ static int kgsl_release(struct inode *inodep, struct file *filep)
 
 	kfree(dev_priv);
 
+	kgsl_detach_process_private(private);
 	kgsl_process_private_put(private);
 
 	pm_runtime_put(device->parentdev);
@@ -1807,16 +1820,13 @@ void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch)
 	list_for_each_entry_safe(event, tmp, &cancel_synclist, node) {
 
 		if (event->type == KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP) {
-			struct kgsl_device *device = cmdbatch->device;
 			/*
 			 * Timestamp events are guaranteed to signal
 			 * when canceled
 			 */
-			kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
-			kgsl_cancel_event(device, event->context,
+			kgsl_cancel_event(cmdbatch->device, event->context,
 				event->timestamp, kgsl_cmdbatch_sync_func,
 				event);
-			kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
 		} else if (event->type == KGSL_CMD_SYNCPOINT_TYPE_FENCE) {
 			/* Put events that are successfully canceled */
 			if (kgsl_sync_fence_async_cancel(event->handle))
@@ -2314,8 +2324,11 @@ free_cmdbatch:
 	 * -EPROTO is a "success" error - it just tells the user that the
 	 * context had previously faulted
 	 */
-	if (result && result != -EPROTO)
+	if (result && result != -EPROTO) {
+		kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 		kgsl_cmdbatch_destroy(cmdbatch);
+		kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	}
 
 done:
 	kgsl_context_put(context);
@@ -2366,8 +2379,11 @@ free_cmdbatch:
 	 * -EPROTO is a "success" error - it just tells the user that the
 	 * context had previously faulted
 	 */
-	if (result && result != -EPROTO)
+	if (result && result != -EPROTO) {
+		kgsl_mutex_lock(&device->mutex, &device->mutex_owner);
 		kgsl_cmdbatch_destroy(cmdbatch);
+		kgsl_mutex_unlock(&device->mutex, &device->mutex_owner);
+	}
 
 done:
 	kgsl_context_put(context);
