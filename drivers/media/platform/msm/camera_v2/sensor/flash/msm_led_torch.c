@@ -25,8 +25,11 @@ static void msm_led_torch_brightness_set(struct led_classdev *led_cdev,
 		pr_err("No torch trigger found, can't set brightness\n");
 		return;
 	}
-
+#if defined(CONFIG_LGE_DUAL_LED)
 	led_trigger_event2(torch_trigger, value, value);
+#else
+    led_trigger_event(torch_trigger, value);
+#endif
 };
 
 static struct led_classdev msm_torch_led = {
