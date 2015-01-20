@@ -1,0 +1,3 @@
+header-y += pn544.h
+header-y += pn544_lge.h
+header-y += pn547_lge.h
