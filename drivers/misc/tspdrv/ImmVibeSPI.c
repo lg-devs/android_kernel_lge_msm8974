@@ -132,7 +132,7 @@ static int mmss_cc_d_half;
 #define PRE_FORCE_DEF	128
 static int previous_nForce = PRE_FORCE_DEF;
 
-IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_AmpDisable(VibeUInt8 nActuatorIndex);
+/*IMMVIBESPIAPI*/ VibeStatus ImmVibeSPI_ForceOut_AmpDisable(VibeUInt8 nActuatorIndex);
 
 struct timed_vibrator_data {
 	atomic_t gp1_clk_flag;
@@ -340,7 +340,7 @@ static struct platform_driver sm100_driver = {
 
 			if (atomic_read(&vib.gp1_clk_flag) == 1) {
 				atomic_set(&vib.gp1_clk_flag, 0);
-                clk_disable_unprepare(cam_gp1_clk);
+				clk_disable_unprepare(cam_gp1_clk);
 			}
 		} else {
 #ifdef CONFIG_TSPDRV_PMIC_VIBRATOR
@@ -368,7 +368,7 @@ EXPORT_SYMBOL(ImmVibeSPI_ForceOut_AmpDisable);
 		if(sm100_flag) {
 			if (atomic_read(&vib.gp1_clk_flag) == 0) {
 				atomic_set(&vib.gp1_clk_flag, 1);
-                clk_prepare_enable(cam_gp1_clk);
+				clk_prepare_enable(cam_gp1_clk);
 			}
 
 			sm100_power_set(1, &vib);
@@ -516,7 +516,7 @@ IMMVIBESPIAPI VibeStatus ImmVibeSPI_ForceOut_SetFrequency(VibeUInt8 nActuatorInd
 VibeInt8 timedForce = DEFAULT_TIMED_STRENGTH;
 
 VibeStatus ImmVibeSPI_SetTimedSample(void) {
-    return ImmVibeSPI_ForceOut_SetSamples(0, 8, 1, &timedForce);
+	return ImmVibeSPI_ForceOut_SetSamples(0, 8, 1, &timedForce);
 }
 
 /*
