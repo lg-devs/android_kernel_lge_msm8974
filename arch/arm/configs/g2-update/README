@@ -1,0 +1,13 @@
+	Updating LG G2 configs
+
+This directory has scripts to update the LG G2 kernel configs, which is 
+a way to maintain updates across all variants until a method to have a 
+commonized config is merged across distribution build systems. In order
+to use this method, first update the cyanogenmod_d802_defconfig. Then run
+the following commands from the kernel root directory:
+	cd arch/arm/configs/g2-update
+    ./all.sh
+
+This will run the scripts that will remove the other variants configs and
+replace them with the d802 config and then make the necessary changes for
+each variant.
