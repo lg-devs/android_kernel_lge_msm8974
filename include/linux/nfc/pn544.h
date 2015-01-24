@@ -1,6 +1,12 @@
-#if defined(CONFIG_MACH_MSM8974_G3_LGU) || defined(CONFIG_MACH_MSM8974_G3_SKT) || defined(CONFIG_MACH_MSM8974_G3_KT) || defined(CONFIG_MACH_MSM8974_G3_ATT) || defined(CONFIG_MACH_MSM8974_G3_VZW) || defined(CONFIG_MACH_MSM8974_G3_SPR_US) || defined(CONFIG_MACH_MSM8974_G3_USC_US) || defined(CONFIG_MACH_MSM8974_G3_TMO_US) || defined(CONFIG_MACH_MSM8974_G3_GLOBAL_COM)  || defined(CONFIG_MACH_MSM8974_G3_CN) || defined(CONFIG_MACH_MSM8974_G3_CA) || defined(CONFIG_MACH_MSM8974_G3_LRA)
-/*
+/* 
+ * Driver include for the PN544 NFC chip.
+ *
  * Copyright (C) 2010 NXP Semiconductors
+ * Copyright (C) Nokia Corporation
+ * Copyright (C) 2015 The CyanogenMod Project
+ *
+ * Author: Jari Vanhala <ext-jari.vanhala@nokia.com>
+ * Contact: Matti Aaltoenn <matti.j.aaltonen@nokia.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,11 +23,46 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
+ 
+#ifndef _PN544_LGE_H_
+#define _PN544_LGE_H_
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/fs.h>
+#include <linux/slab.h>
+#include <linux/init.h>
+#include <linux/list.h>
+#include <linux/i2c.h>
+#include <linux/irq.h>
+#include <linux/jiffies.h>
+#include <linux/uaccess.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/io.h>
+#include <linux/platform_device.h>
+#include <linux/gpio.h>
+#include <linux/miscdevice.h>
+#include <linux/spinlock.h>
 
-#ifndef _PN547_LGE_H_
-#define _PN547_LGE_H_
+#include <mach/board_lge.h>
 
+// The open source PN544 HAL doesn't use magic, so only define for PN547
+#ifdef CONFIG_LGE_NFC_PN547
 #define PN544_MAGIC	0xE9
+#endif
+
+/* LGE_START seunghyun.kwak@lge.com 2013-10-15 NFC Bringup for B2*/
+/* Ignore the fact that both DRV_NAME and DRIVER_NAME are defined here.
+ * Sometimes one is refenced and other times the other is, so for peace
+ * of mind, just define both of them.
+ */
+#ifdef CONFIG_LGE_NFC_PN547	
+#define PN544_DRV_NAME      "pn547"   
+#define PN544_DRIVER_NAME	"pn547" 
+#else
+#define PN544_DRV_NAME      "pn544"
+#define PN544_DRIVER_NAME	"pn544"
+#endif
 
 /*
  * PN544 power control via ioctl
@@ -29,39 +70,15 @@
  * PN544_SET_PWR(1): power on
  * PN544_SET_PWR(2): reset and power on with firmware download enabled
  */
+#ifdef CONFIG_LGE_NFC_PN547	
 #define PN544_SET_PWR	_IOW(PN544_MAGIC, 0x01, unsigned int)
+#endif
 
-#endif /* _PN547_LGE_H_ */
-
-#else
-/*
- * Driver include for the PN544 NFC chip.
- *
- * Copyright (C) Nokia Corporation
- *
- * Author: Jari Vanhala <ext-jari.vanhala@nokia.com>
- * Contact: Matti Aaltoenn <matti.j.aaltonen@nokia.com>
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+/* Everything following this ifndef is not needed or used on PN547 chips
+ * so only use it if PN547 is NOT defined
  */
+#if !defined(CONFIG_LGE_NFC_PN547) || !defined(CONFIG_LGE_NFC_PN547_C2)
 
-#ifndef _PN544_H_
-#define _PN544_H_
-
-#include <linux/i2c.h>
-
-#define PN544_DRIVER_NAME	"pn544"
 #define PN544_MAXWINDOW_SIZE	7
 #define PN544_WINDOW_SIZE	4
 #define PN544_RETRIES		10
@@ -130,6 +147,6 @@ struct pn544_nfc_platform_data {
 };
 #endif /* __KERNEL__ */
 
-#endif /* _PN544_H_ */
+#endif /* _CONFIG_LGE_NFC_PN547_ || _CONFIG_LGE_NFC_PN547_C2_ */
 
-#endif /* _CONFIG_MACH_MSM8974_G3_ */
+#endif /* _PN544_H_ */
