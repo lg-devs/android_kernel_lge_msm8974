@@ -157,12 +157,12 @@ struct msm_compr_audio {
 
 	uint16_t session_id;
 
-	uint16_t bits_per_sample;
-
 	uint32_t sample_rate;
 	uint32_t num_channels;
 #ifdef CONFIG_HIFI_SOUND
 	uint32_t bits_per_sample;
+#else
+	uint16_t bits_per_sample;
 #endif
 	uint32_t cmd_ack;
 	uint32_t cmd_interrupt;
@@ -653,7 +653,9 @@ static int msm_compr_configure_dsp(struct snd_compr_stream *cstream)
 		.rampingcurve = SOFT_VOLUME_CURVE_LINEAR,
 	};
 
+#ifndef CONFIG_HIFI_SOUND
 	prtd->bits_per_sample = bits_per_sample;
+#endif
 
 	pr_debug("%s: stream_id %d\n", __func__, ac->stream_id);
 
