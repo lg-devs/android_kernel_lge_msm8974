@@ -105,7 +105,7 @@ enum dwc3_chg_type {
 
 struct dwc3_charger {
 	enum dwc3_chg_type	chg_type;
-	int			max_power;
+	unsigned		max_power;
 	bool			charging_disabled;
 
 	bool			skip_chg_detect;
