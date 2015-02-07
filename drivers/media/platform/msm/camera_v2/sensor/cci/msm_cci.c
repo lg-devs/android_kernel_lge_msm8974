@@ -219,8 +219,8 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 		return -EINVAL;
 	}
 
-    reg_addr = i2c_cmd->reg_addr;
-    while (cmd_size) {
+	reg_addr = i2c_cmd->reg_addr;
+	while (cmd_size) {
 		CDBG("%s cmd_size %d addr 0x%x data 0x%x\n", __func__,
 			cmd_size, i2c_cmd->reg_addr, i2c_cmd->reg_data);
 		delay = i2c_cmd->delay;

@@ -1007,20 +1007,20 @@ static void wcnss_remove_sysfs(struct device *dev)
 
 static void wcnss_pm_qos_add_request(void)
 {
-	pr_info("%s: add request", __func__);
+	pr_info("%s: add request\n", __func__);
 	pm_qos_add_request(&penv->wcnss_pm_qos_request, PM_QOS_CPU_DMA_LATENCY,
 			PM_QOS_DEFAULT_VALUE);
 }
 
 static void wcnss_pm_qos_remove_request(void)
 {
-	pr_info("%s: remove request", __func__);
+	pr_info("%s: remove request\n", __func__);
 	pm_qos_remove_request(&penv->wcnss_pm_qos_request);
 }
 
 void wcnss_pm_qos_update_request(int val)
 {
-	pr_info("%s: update request %d", __func__, val);
+	pr_info("%s: update request %d\n", __func__, val);
 	pm_qos_update_request(&penv->wcnss_pm_qos_request, val);
 }
 
@@ -1829,8 +1829,10 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 		smd_read(penv->smd_ch, NULL, len);
 		return;
 	}
-	if (len <= 0)
+	if (len < sizeof(struct smd_msg_hdr)) {
+		pr_err("wcnss: incomplete header available len = %d\n", len);
 		return;
+	}
 
 	rc = smd_read(penv->smd_ch, buf, sizeof(struct smd_msg_hdr));
 	if (rc < sizeof(struct smd_msg_hdr)) {
