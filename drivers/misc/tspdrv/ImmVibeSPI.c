@@ -30,7 +30,7 @@
 /* Debug Mask setting */
 #define VIBRATOR_DEBUG_PRINT   (0)
 #define VIBRATOR_ERROR_PRINT   (1)
-#define VIBRATOR_INFO_PRINT    (1)
+#define VIBRATOR_INFO_PRINT    (0)
 
 #if (VIBRATOR_INFO_PRINT)
 #define INFO_MSG(fmt, args...) \
@@ -330,7 +330,7 @@ static struct platform_driver sm100_driver = {
 */
 /*IMMVIBESPIAPI*/ VibeStatus ImmVibeSPI_ForceOut_AmpDisable(VibeUInt8 nActuatorIndex)
 {
-	printk("%s : g_bAmpEnabled:%d\n", __func__, g_bAmpEnabled);
+	//printk("%s : g_bAmpEnabled:%d\n", __func__, g_bAmpEnabled);
     if (g_bAmpEnabled)
     {
 		if(sm100_flag) {
@@ -362,7 +362,7 @@ EXPORT_SYMBOL(ImmVibeSPI_ForceOut_AmpDisable);
 */
 /*IMMVIBESPIAPI*/ VibeStatus ImmVibeSPI_ForceOut_AmpEnable(VibeUInt8 nActuatorIndex, VibeInt8 nForce)
 {
-	printk("%s : g_bAmpEnabled:%d\n", __func__, g_bAmpEnabled);
+	//printk("%s : g_bAmpEnabled:%d\n", __func__, g_bAmpEnabled);
     if (!g_bAmpEnabled)
     {
 		if(sm100_flag) {
