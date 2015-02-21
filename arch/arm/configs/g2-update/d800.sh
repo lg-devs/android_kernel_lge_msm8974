@@ -8,4 +8,4 @@ sed -i 's/CONFIG_LGE_G2_EMBEDDED_BATT=y/CONFIG_LGE_CURRENTNOW=y\nCONFIG_LGE_G2_E
 sed -i 's/# CONFIG_RADIO_IRIS is not set/CONFIG_RADIO_IRIS=y\nCONFIG_RADIO_IRIS_TRANSPORT=m/g' ../cyanogenmod_d800_defconfig
 sed -i 's/# CONFIG_QPNP_BMS is not set/CONFIG_QPNP_BMS=y/g' ../cyanogenmod_d800_defconfig
 sed -i 's/CONFIG_SND_FM_RADIO=y/# CONFIG_SND_FM_RADIO is not set/g' ../cyanogenmod_d800_defconfig
-sed -i 's/# CONFIG_SND_SOC_ES325_SLIM is not set/CONFIG_SND_SOC_ES325_SLIM=y/g' ../cyanogenmod_d800_defconfig
+#sed -i 's/# CONFIG_SND_SOC_ES325_SLIM is not set/CONFIG_SND_SOC_ES325_SLIM=y/g' ../cyanogenmod_d800_defconfig

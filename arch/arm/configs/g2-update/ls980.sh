@@ -14,8 +14,8 @@ sed -i 's/# CONFIG_LGE_NFC_DEBUG_MESSAGE is not set is not set/CONFIG_LGE_NFC_DE
 sed -i 's/CONFIG_NFC_BCM2079X=y/# CONFIG_NFC_BCM2079X is not set/g' ../cyanogenmod_ls980_defconfig
 sed -i 's/# CONFIG_LGE_SLATE is not set/CONFIG_LGE_SLATE=y/g' ../cyanogenmod_ls980_defconfig
 sed -i 's/CONFIG_LGE_G2_EMBEDDED_BATT=y/# CONFIG_LGE_G2_EMBEDDED_BATT is not set/g' ../cyanogenmod_ls980_defconfig
-sed -i 's/CONFIG_SND_VOICE_VOLUME=6/CONFIG_SND_VOICE_VOLUME=9/g' ../cyanogenmod_ls980_defconfig
-sed -i 's/CONFIG_SND_VOIP_VOLUME=6/CONFIG_SND_VOIP_VOLUME=9/g' ../cyanogenmod_ls980_defconfig
+#sed -i 's/CONFIG_SND_VOICE_VOLUME=6/CONFIG_SND_VOICE_VOLUME=9/g' ../cyanogenmod_ls980_defconfig
+#sed -i 's/CONFIG_SND_VOIP_VOLUME=6/CONFIG_SND_VOIP_VOLUME=9/g' ../cyanogenmod_ls980_defconfig
 sed -i 's/CONFIG_USB_LGE_LPM_STATE=y/# CONFIG_USB_LGE_LPM_STATE is not set/g' ../cyanogenmod_ls980_defconfig
 sed -i 's/CONFIG_USB_G_LGE_ANDROID_DIAG_OSP_SUPPORT=y/# CONFIG_USB_G_LGE_ANDROID_DIAG_OSP_SUPPORT is not set/g' ../cyanogenmod_ls980_defconfig
 sed -i 's/# CONFIG_USB_G_LGE_SERIALNO_REDIRECTION is not set/CONFIG_USB_G_LGE_SERIALNO_REDIRECTION=y/g' ../cyanogenmod_ls980_defconfig
