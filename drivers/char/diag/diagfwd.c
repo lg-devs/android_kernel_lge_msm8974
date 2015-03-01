@@ -848,16 +848,8 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 	} else if (smd_info->ch && !buf &&
 		(driver->logging_mode == MEMORY_DEVICE_MODE)) {
 			chk_logging_wakeup();
-	} else {
-		if ((smd_info->type == SMD_DATA_TYPE ||
-		     smd_info->type == SMD_CMD_TYPE) &&
-		     driver->logging_mode == MEMORY_DEVICE_MODE) {
-			diag_ws_on_read(0);
-		}
-	}
-
 #ifdef CONFIG_LGE_DM_APP
-    else if (smd_info->ch && (driver->logging_mode == DM_APP_MODE)) {
+    } else if (smd_info->ch && (driver->logging_mode == DM_APP_MODE)) {
 		chk_logging_wakeup();
 		if( buf != NULL && smd_info->in_busy_1 == 0){
 			smd_info->in_busy_1 = 1;
@@ -868,8 +860,14 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 
 		lge_dm_tty->set_logging = 1;
 		wake_up_interruptible(&lge_dm_tty->waitq);
-	}
 #endif
+	} else {
+		if ((smd_info->type == SMD_DATA_TYPE ||
+		     smd_info->type == SMD_CMD_TYPE) &&
+		     driver->logging_mode == MEMORY_DEVICE_MODE) {
+			diag_ws_on_read(0);
+		}
+	}
 
 	return;
 
