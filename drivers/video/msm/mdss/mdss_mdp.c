@@ -1567,8 +1567,17 @@ static int mdss_mdp_parse_bootarg(struct platform_device *pdev)
 		goto get_dt_pan;
 	}
 
+#ifndef CONFIG_APPEND_G2_PANEL_INFO
 	cmd_line = of_get_property(chosen_node, "bootargs", &len);
+#else
+	cmd_line = saved_command_line;
+#endif
+
+#ifndef CONFIG_APPEND_G2_PANEL_INFO
 	if (!cmd_line || len <= 0) {
+#else
+	if (!cmd_line) {
+#endif
 		pr_err("%s: get bootargs failed\n", __func__);
 		rc = -ENODEV;
 		goto get_dt_pan;
@@ -1606,7 +1615,9 @@ static int mdss_mdp_parse_bootarg(struct platform_device *pdev)
 		goto get_dt_pan;
 	}
 
+#ifndef CONFIG_APPEND_G2_PANEL_INFO
 	*end_idx = 0;
+#endif
 	len = end_idx - disp_idx + 1;
 	if (len <= 0) {
 		pr_warn("%s: panel name not rx", __func__);
