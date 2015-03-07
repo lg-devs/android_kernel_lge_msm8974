@@ -1533,6 +1533,13 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		pr_err("cpp_dev is null\n");
 		return -EINVAL;
 	}
+
+	if ((ioctl_ptr->ioctl_ptr == NULL) || (ioctl_ptr->len == 0)){
+		pr_err("ioctl_ptr OR ioctl_ptr->len is NULL  %p %d \n",
+			ioctl_ptr, ioctl_ptr->len);
+		return -EINVAL;
+	}
+
 	mutex_lock(&cpp_dev->mutex);
 	CPP_DBG("E cmd: %d\n", cmd);
 	switch (cmd) {
@@ -1552,9 +1559,9 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				kfree(cpp_dev->fw_name_bin);
 				cpp_dev->fw_name_bin = NULL;
 			}
-			if ((ioctl_ptr->len == 0) ||
-				(ioctl_ptr->len > MSM_CPP_MAX_FW_NAME_LEN)) {
-				pr_err("ioctl_ptr->len is 0\n");
+			if (ioctl_ptr->len >= MSM_CPP_MAX_FW_NAME_LEN) {
+				pr_err("Error: ioctl_ptr->len = %d \n",
+					 ioctl_ptr->len);
 				mutex_unlock(&cpp_dev->mutex);
 				return -EINVAL;
 			}
@@ -1567,7 +1574,9 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				return -EINVAL;
 			}
 			if (ioctl_ptr->ioctl_ptr == NULL) {
-				pr_err("ioctl_ptr->ioctl_ptr=NULL\n");
+				pr_err("ioctl_ptr->ioctl_ptr is NULL\n");
+				kfree(cpp_dev->fw_name_bin);
+				cpp_dev->fw_name_bin = NULL;
 				mutex_unlock(&cpp_dev->mutex);
 				return -EINVAL;
 			}
@@ -1756,6 +1765,12 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 			if (copy_to_user((void __user *)ioctl_ptr->ioctl_ptr,
 					process_frame,
 					sizeof(struct msm_cpp_frame_info_t))) {
+						kfree(process_frame->cpp_cmd_msg);
+						process_frame->cpp_cmd_msg = NULL;
+						kfree(process_frame);
+						process_frame = NULL;
+						kfree(event_qcmd);
+						event_qcmd = NULL;
 						mutex_unlock(&cpp_dev->mutex);
 						return -EINVAL;
 			}
