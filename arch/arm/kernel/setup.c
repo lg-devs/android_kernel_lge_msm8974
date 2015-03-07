@@ -941,7 +941,9 @@ void __init setup_arch(char **cmdline_p)
 {
 	struct machine_desc *mdesc;
 #ifdef CONFIG_APPEND_G2_PANEL_INFO
+#ifdef CONFIG_G2_LGD_PANEL
 	const char *append = "mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_lgd_cmd";
+#endif
 	char *find;
 #endif
 
