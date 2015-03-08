@@ -129,13 +129,6 @@ void __init msm8974_add_drivers(void)
 	init_bcm_wifi();
 #endif
 /*                                                                       */
-#if defined(CONFIG_LCD_KCAL)
-/*             
-                          
-                                
-*/
-	lge_add_lcd_kcal_devices();
-#endif /* CONFIG_LCD_KCAL */
 #if defined(CONFIG_LGE_PM_BATTERY_ID_CHECKER)
 	lge_battery_id_devices();
 #endif
