@@ -333,7 +333,6 @@ static void insert_headset(struct hsd_info *hi)
 	msleep(100);
 	HSD_DBG("insert delay additional 100\n");
 #endif
-
 	/* check if 3-pole or 4-pole
 	   1. read gpio_key
 	   2. check if 3-pole or 4-pole
