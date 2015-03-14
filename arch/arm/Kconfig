@@ -2172,6 +2172,17 @@ config CMDLINE
 	  time by entering them here. As a minimum, you should specify the
 	  memory size and the root device (e.g., mem=64M root=/dev/nfs).
 
+config APPEND_G2_PANEL_INFO
+	bool "Append G2 panel info to cmdline if missing"
+	default N
+	help
+	  The LG G2's KitKat and above's aboot automatically appends panel
+	  information to the kernel's command line; and is needed for the
+	  display panel to work. This will check to see if the panel's
+	  information is present, and appends the necessary information
+	  if the information is not. This was designed to work with aboot
+	  versions less than or equal to KitKat for all-around compatability.
+
 choice
 	prompt "Kernel command line type" if CMDLINE != ""
 	default CMDLINE_FROM_BOOTLOADER
