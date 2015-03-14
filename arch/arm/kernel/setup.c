@@ -940,9 +940,23 @@ static int __init meminfo_cmp(const void *_a, const void *_b)
 void __init setup_arch(char **cmdline_p)
 {
 	struct machine_desc *mdesc;
+#ifdef CONFIG_APPEND_G2_PANEL_INFO
+	const char *append = "mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_lgd_cmd";
+	char *find;
+#endif
 
 	setup_processor();
 	mdesc = setup_machine_fdt(__atags_pointer);
+
+#ifdef CONFIG_APPEND_G2_PANEL_INFO
+	find = strstr(boot_command_line, append);
+	if (!find) {
+		printk("Appending display info to cmdline.\n");
+		strlcat(boot_command_line, " ", COMMAND_LINE_SIZE);
+		strlcat(boot_command_line, append, COMMAND_LINE_SIZE);
+	}
+#endif
+
 	if (!mdesc)
 		mdesc = setup_machine_tags(machine_arch_type);
 	machine_desc = mdesc;
