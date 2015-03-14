@@ -9,5 +9,5 @@ sed -i 's/CONFIG_SND_FM_RADIO=y/# CONFIG_SND_FM_RADIO is not set/g' ../cyanogenm
 sed -i 's/CONFIG_SND_FM_SWTICH=y/# CONFIG_SND_FM_SWTICH is not set/g' ../cyanogenmod_d803_defconfig
 sed -i 's/# CONFIG_QPNP_BMS is not set/CONFIG_QPNP_BMS=y/g' ../cyanogenmod_d803_defconfig
 sed -i 's/# CONFIG_QPNP_CHARGER is not set/CONFIG_QPNP_CHARGER=y/g' ../cyanogenmod_d803_defconfig
-sed -i 's/# CONFIG_RADIO_IRIS is not set/CONFIG_RADIO_IRIS=y\nCONFIG_RADIO_IRIS_TRANSPORT=m/g' ../cyanogenmod_d803_defconfig
+sed -i 's/# CONFIG_RADIO_IRIS is not set/CONFIG_RADIO_IRIS=y\nCONFIG_RADIO_IRIS_TRANSPORT=y/g' ../cyanogenmod_d803_defconfig
 sed -i 's/# CONFIG_LGE_HEADSET_INSERT_ADDITIONAL_DELAY is not set/CONFIG_LGE_HEADSET_INSERT_ADDITIONAL_DELAY=y/g' ../cyanogenmod_d803_defconfig

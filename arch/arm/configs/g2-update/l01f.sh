@@ -9,7 +9,7 @@ sed -i 's/# CONFIG_LGE_NFC_SONY_CXD2235AGG is not set/CONFIG_LGE_NFC_SONY_CXD223
 sed -i 's/CONFIG_LGE_G2_EMBEDDED_BATT=y/# CONFIG_LGE_G2_EMBEDDED_BATT is not set/g' ../cyanogenmod_l01f_defconfig
 sed -i 's/# CONFIG_MAX17050_FUELGAUGE is not set/CONFIG_MAX17050_FUELGAUGE=y/g' ../cyanogenmod_l01f_defconfig
 sed -i 's/# CONFIG_USB_GSPCA is not set/CONFIG_USB_GSPCA=y/g' ../cyanogenmod_l01f_defconfig
-sed -i 's/# CONFIG_RADIO_IRIS is not set/CONFIG_RADIO_IRIS=y\nCONFIG_RADIO_IRIS_TRANSPORT=m/g' ../cyanogenmod_l01f_defconfig
+sed -i 's/# CONFIG_RADIO_IRIS is not set/CONFIG_RADIO_IRIS=y\nCONFIG_RADIO_IRIS_TRANSPORT=y/g' ../cyanogenmod_l01f_defconfig
 sed -i 's/CONFIG_USB_LGE_USB3_REDRIVER=y/# CONFIG_USB_LGE_USB3_REDRIVER is not set/g' ../cyanogenmod_l01f_defconfig
 sed -i 's/CONFIG_SWITCH_MAX1462X_WA=y/# CONFIG_SWITCH_MAX1462X_WA is not set/g' ../cyanogenmod_l01f_defconfig
 sed -i 's/# CONFIG_LGE_FELICA is not set/CONFIG_LGE_FELICA=y/g' ../cyanogenmod_l01f_defconfig

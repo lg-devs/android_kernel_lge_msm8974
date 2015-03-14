@@ -13,7 +13,7 @@ sed -i 's/CONFIG_SND_FM_SWTICH=y/# CONFIG_SND_FM_SWTICH is not set/g' ../cyanoge
 sed -i 's/# CONFIG_USB_LGE_RELIABILITY is not set/CONFIG_USB_LGE_RELIABILITY=y/g' ../cyanogenmod_vs980_defconfig
 sed -i 's/CONFIG_USB_G_LGE_ANDROID_DIAG_OSP_SUPPORT=y/# CONFIG_USB_G_LGE_ANDROID_DIAG_OSP_SUPPORT is not set/g' ../cyanogenmod_vs980_defconfig
 sed -i 's/# CONFIG_QPNP_BMS is not set/CONFIG_QPNP_BMS=y/g' ../cyanogenmod_vs980_defconfig
-sed -i 's/# CONFIG_RADIO_IRIS is not set/CONFIG_RADIO_IRIS=y\nCONFIG_RADIO_IRIS_TRANSPORT=m/g' ../cyanogenmod_vs980_defconfig
+sed -i 's/# CONFIG_RADIO_IRIS is not set/CONFIG_RADIO_IRIS=y\nCONFIG_RADIO_IRIS_TRANSPORT=y/g' ../cyanogenmod_vs980_defconfig
 sed -i 's/# CONFIG_USB_G_LGE_ANDROID_AUTORUN_VZW is not set/CONFIG_USB_G_LGE_ANDROID_AUTORUN_VZW=y/g' ../cyanogenmod_vs980_defconfig
 sed -i 's/CONFIG_USB_G_LGE_ANDROID_AUTORUN_LGE=y/# CONFIG_USB_G_LGE_ANDROID_AUTORUN_LGE is not set/g' ../cyanogenmod_vs980_defconfig
 sed -i 's/CONFIG_USB_G_LGE_ANDROID_DIAG_OSP_SUPPORT=y/# CONFIG_USB_G_LGE_ANDROID_DIAG_OSP_SUPPORT is not set/g' ../cyanogenmod_vs980_defconfig

@@ -13,7 +13,7 @@ sed -i 's/# CONFIG_SMB349_VZW_FAST_CHG is not set/CONFIG_SMB349_VZW_FAST_CHG=y/g
 sed -i 's/# CONFIG_LGE_PM_BATTERY_ID_CHECKER is not set/CONFIG_LGE_PM_BATTERY_ID_CHECKER=y/g' ../cyanogenmod_f320_defconfig
 sed -i 's/# CONFIG_LGE_CURRENTNOW is not set/CONFIG_LGE_CURRENTNOW=y/g' ../cyanogenmod_f320_defconfig
 sed -i 's/CONFIG_LGE_G2_EMBEDDED_BATT=y/# CONFIG_LGE_G2_EMBEDDED_BATT is not set/g' ../cyanogenmod_f320_defconfig
-sed -i 's/# CONFIG_RADIO_IRIS is not set/CONFIG_RADIO_IRIS=y\nCONFIG_RADIO_IRIS_TRANSPORT=m/g' ../cyanogenmod_f320_defconfig
+sed -i 's/# CONFIG_RADIO_IRIS is not set/CONFIG_RADIO_IRIS=y\nCONFIG_RADIO_IRIS_TRANSPORT=y/g' ../cyanogenmod_f320_defconfig
 sed -i 's/CONFIG_SND_FM_RADIO=y/# CONFIG_SND_FM_RADIO is not set/g' ../cyanogenmod_f320_defconfig
 sed -i 's/CONFIG_SND_FM_SWTICH=y/# CONFIG_SND_FM_SWTICH is not set/g' ../cyanogenmod_f320_defconfig
 sed -i 's/CONFIG_USB_EMBEDDED_BATTERY_REBOOT=y/# CONFIG_USB_EMBEDDED_BATTERY_REBOOT is not set/g' ../cyanogenmod_f320_defconfig
