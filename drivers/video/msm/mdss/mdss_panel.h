@@ -350,6 +350,11 @@ struct mdss_panel_info {
 	struct ion_handle *splash_ihdl;
 	u32 panel_power_on;
 
+	int cabc_available;
+	int cabc_mode;
+	int sre_available;
+	bool sre_enabled;
+
 	uint32_t panel_dead;
 	bool dynamic_switch_pending;
 	bool is_lpm_mode;
@@ -489,4 +494,11 @@ int mdss_panel_get_boot_cfg(void);
  * returns true if mdss is ready, else returns false.
  */
 bool mdss_is_ready(void);
+
+int mdss_dsi_panel_set_cabc(struct mdss_panel_data *panel_data, int level);
+int mdss_dsi_panel_set_gamma_index(struct mdss_panel_data *panel_data,
+				int index);
+int mdss_dsi_panel_set_sre(struct mdss_panel_data *panel_data, bool enable);
+int mdss_dsi_panel_set_color_enhance(struct mdss_panel_data *panel_data,
+				bool enable);
 #endif /* MDSS_PANEL_H */
