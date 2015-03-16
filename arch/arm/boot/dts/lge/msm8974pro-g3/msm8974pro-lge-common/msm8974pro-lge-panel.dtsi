@@ -245,6 +245,21 @@
 		qcom,mdss-dsi-t-clk-pre = <0x25>;
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = <1511>;
+		qcom,mdss-dsi-cabc-off-command = [
+			15 01 00 00 10 00 02 55 00
+			05 01 00 00 10 00 02 29 00];
+		qcom,mdss-dsi-cabc-ui-command = [
+			15 01 00 00 10 00 02 55 01
+			05 01 00 00 10 00 02 29 00];
+		qcom,mdss-dsi-cabc-still-image-command = [
+			15 01 00 00 10 00 02 55 02
+			05 01 00 00 10 00 02 29 00];
+		qcom,mdss-dsi-cabc-video-command = [
+			15 01 00 00 10 00 02 55 03
+			05 01 00 00 10 00 02 29 00];
+		qcom,mdss-dsi-sre-ui-command = [
+			15 01 00 00 10 00 02 55 60
+			05 01 00 00 10 00 02 29 00];
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_others";
@@ -386,6 +401,21 @@
 		qcom,mdss-dsi-t-clk-pre = <0x25>;
 		qcom,mdss-dsi-bl-min-level = <1>;
 		qcom,mdss-dsi-bl-max-level = <1511>;
+		qcom,mdss-dsi-cabc-off-command = [
+			15 01 00 00 10 00 02 55 00
+			05 01 00 00 10 00 02 29 00];
+		qcom,mdss-dsi-cabc-ui-command = [
+			15 01 00 00 10 00 02 55 01
+			05 01 00 00 10 00 02 29 00];
+		qcom,mdss-dsi-cabc-still-image-command = [
+			15 01 00 00 10 00 02 55 02
+			05 01 00 00 10 00 02 29 00];
+		qcom,mdss-dsi-cabc-video-command = [
+			15 01 00 00 10 00 02 55 03
+			05 01 00 00 10 00 02 29 00];
+		qcom,mdss-dsi-sre-ui-command = [
+			15 01 00 00 10 00 02 55 60
+			05 01 00 00 10 00 02 29 00];
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_others";
