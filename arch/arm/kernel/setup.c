@@ -62,6 +62,10 @@
 #include "atags.h"
 #include "tcm.h"
 
+#ifdef CONFIG_APPEND_G2_PANEL_INFO
+#include "arch/arm/mach-msm/lge/devices_lge.h"
+#endif
+
 #ifndef MEM_SIZE
 #define MEM_SIZE	(16*1024*1024)
 #endif
@@ -941,7 +945,10 @@ void __init setup_arch(char **cmdline_p)
 {
 	struct machine_desc *mdesc;
 #ifdef CONFIG_APPEND_G2_PANEL_INFO
-	const char *append = "mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_lgd_cmd";
+	if (board_panel_maker == 0)   /* LCD_RENESAS_LGD */
+		const char *append = "mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_lgd_cmd";
+	else if (board_panel_maker == 1)	/* LCD_RENESAS_JDI */
+		const char *append = "mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_jdi_cmd";
 	char *find;
 #endif
 
