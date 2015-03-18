@@ -62,6 +62,10 @@
 #include "atags.h"
 #include "tcm.h"
 
+#ifdef CONFIG_APPEND_G2_PANEL_INFO
+#include <mach/devices_lge.h>
+#endif
+
 #ifndef MEM_SIZE
 #define MEM_SIZE	(16*1024*1024)
 #endif
@@ -940,9 +944,37 @@ static int __init meminfo_cmp(const void *_a, const void *_b)
 void __init setup_arch(char **cmdline_p)
 {
 	struct machine_desc *mdesc;
+#ifdef CONFIG_APPEND_G2_PANEL_INFO
+	char *append;
+	char *find;
+
+	if (board_panel_maker == 0) {
+		/* LCD_RENESAS_LGD */
+		append = "mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_lgd_cmd";
+	} else if (board_panel_maker == 1) {
+		/* LCD_RENESAS_JDI */
+		append = "mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_jdi_cmd";
+	} else {
+		/* If for some odd reason board_panel_maker doesn't return a value
+		 * that is either 1 or 0, simply default to LGD panels. This way
+		 * the system will actually boot instead of stall at the LG logo.
+		 */
+		append = "mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_lgd_cmd";
+	}
+#endif
 
 	setup_processor();
 	mdesc = setup_machine_fdt(__atags_pointer);
+
+#ifdef CONFIG_APPEND_G2_PANEL_INFO
+	find = strstr(boot_command_line, append);
+	if (!find) {
+		printk("Appending display info to cmdline.\n");
+		strlcat(boot_command_line, " ", COMMAND_LINE_SIZE);
+		strlcat(boot_command_line, append, COMMAND_LINE_SIZE);
+	}
+#endif
+
 	if (!mdesc)
 		mdesc = setup_machine_tags(machine_arch_type);
 	machine_desc = mdesc;
