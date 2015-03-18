@@ -11,4 +11,3 @@ sed -i 's/CONFIG_SND_FM_RADIO=y/# CONFIG_SND_FM_RADIO is not set/g' ../cyanogenm
 sed -i 's/CONFIG_SND_FM_SWTICH=y/# CONFIG_SND_FM_SWTICH is not set/g' ../cyanogenmod_d800_defconfig
 sed -i 's/# CONFIG_SND_SOC_ES325_SLIM is not set/CONFIG_SND_SOC_ES325_SLIM=y/g' ../cyanogenmod_d800_defconfig
 sed -i 's/# CONFIG_SND_SOC_APQ8074 is not set/CONFIG_SND_SOC_APQ8074=y/g' ../cyanogenmod_d800_defconfig
-sed -i 's/# CONFIG_LGE_DDM_TTY is not set/CONFIG_LGE_DDM_TTY=y/g' ../cyanogenmod_d800_defconfig
