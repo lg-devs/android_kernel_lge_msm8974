@@ -519,7 +519,11 @@ static lcd_maker_id lge_panel_maker;
 /* CAUTION : These strings are come from LK */
 char *panel_maker[] = {"0", "1", "2"};
 
+#ifdef CONFIG_APPEND_G2_PANEL_INFO
+int board_panel_maker(char *maker_id)
+#else
 static int __init board_panel_maker(char *maker_id)
+#endif
 {
  int i;
 

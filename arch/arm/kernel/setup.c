@@ -62,6 +62,10 @@
 #include "atags.h"
 #include "tcm.h"
 
+#ifdef CONFIG_APPEND_G2_PANEL_INFO
+#include <mach/devices_lge.h>
+#endif
+
 #ifndef MEM_SIZE
 #define MEM_SIZE	(16*1024*1024)
 #endif
@@ -941,8 +945,23 @@ void __init setup_arch(char **cmdline_p)
 {
 	struct machine_desc *mdesc;
 #ifdef CONFIG_APPEND_G2_PANEL_INFO
-	const char *append = "mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_lgd_cmd";
+	char *append;
 	char *find;
+
+	if (board_panel_maker == 0) {
+		/* LCD_RENESAS_LGD */
+		append = "mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_lgd_cmd";
+	} else if (board_panel_maker == 1) {
+		/* LCD_RENESAS_JDI */
+		append = "mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_jdi_cmd";
+	} else {
+		/* If for some odd reason board_panel_maker doesn't return a value
+		 * that is either 1 or 0, simply default to LGD panels. This way
+		 * the system will actually boot instead of stall at the LG logo.
+		 */
+		append = "mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_lgd_cmd";
+		printk("board_panel_maker could not be read. Something isn't right.\n");
+	}
 #endif
 
 	setup_processor();
