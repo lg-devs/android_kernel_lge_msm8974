@@ -948,10 +948,10 @@ void __init setup_arch(char **cmdline_p)
 	char *append;
 	char *find;
 
-	if (board_panel_maker == 0) {
+	if (get_panel_maker_id() == 0) {
 		/* LCD_RENESAS_LGD */
 		append = "mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_lgd_cmd";
-	} else if (board_panel_maker == 1) {
+	} else if (get_panel_maker_id() == 1) {
 		/* LCD_RENESAS_JDI */
 		append = "mdss_mdp.panel=1:dsi:0:qcom,mdss_dsi_g2_jdi_cmd";
 	} else {
